@@ -16,13 +16,13 @@ Intent → Code → Prediction → Prevention → Safe Deployment
 
 ## Installation
 
-This skill is already active if you are inside the `Hackathon` project. No installation needed.
-
-To use it in another project, copy the file:
+Copy the skill file into your project's commands folder:
 
 ```
 .claude/commands/premortem.md  →  <your-project>/.claude/commands/premortem.md
 ```
+
+The skill becomes available immediately as `/premortem` in that project. No configuration needed.
 
 ---
 
