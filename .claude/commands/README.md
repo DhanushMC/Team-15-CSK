@@ -14,6 +14,29 @@ Intent → Code → Prediction → Prevention → Safe Deployment
 
 ---
 
+## Why This Skill
+
+Building a platform like PreMortem spans 8 interconnected layers, 15+ modules, multiple external APIs, and a strict AI safety contract. Without a shared reference, every Claude Code session starts cold — you re-explain the architecture, re-clarify file paths, and re-define output formats from scratch.
+
+This skill solves that by embedding the complete system architecture directly into Claude's context the moment you invoke it. Claude knows every layer, every module path, every expected JSON schema, and every governance rule — so you can jump straight to building without setup.
+
+It also enforces consistency: all generated code follows the same module structure, all Claude API calls use the correct output formats, and the AI safety principle (AI suggests, human approves, GitOps deploys) is never violated.
+
+---
+
+## When to Use
+
+| Situation | Use `/premortem` |
+|---|---|
+| Starting a new coding session on any layer | Yes — loads full context instantly |
+| Generating a new module from scratch | Yes — produces code at the correct file path |
+| Unsure which layer handles a responsibility | Yes — explains scope boundaries |
+| Writing a Claude API prompt for any AI module | Yes — outputs system prompt + JSON schema |
+| Reviewing the build sequence before a sprint | Yes — returns the 4-phase task order |
+| Working on unrelated code outside PreMortem | No — skill context is PreMortem-specific |
+
+---
+
 ## Installation
 
 Copy the skill file into your project's commands folder:
