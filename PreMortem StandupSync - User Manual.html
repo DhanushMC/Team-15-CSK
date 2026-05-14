@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PreMortem + StandupSync — User Manual</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --primary:#007560;--primary-variant:#004937;
+  --primary-tint:#D9EAE7;--primary-tint-soft:#E5F1EF;
+  --accent-blue:#0B7BC1;--accent-blue-tint:#DAEBF6;
+  --accent-orange:#E26D5A;--accent-bronze:#A2511A;
+  --error:#B00020;--error-tint:#F3D9DE;--warn-bg:#FCF5E7;
+  --grey-100:#EFEFF1;--grey-150:#F2F3F3;--grey-200:#D7D7DF;
+  --grey-300:#BDBDBD;--grey-600:#6F6F6F;--grey-700:#4D4D4D;--grey-900:#222222;
+  --bg:#FFFFFF;--ink:#222222;
+  --t-h1:28pt;--t-h2:17pt;--t-h3:12pt;--t-h4:10.5pt;
+  --t-body:9.5pt;--t-small:8.5pt;--t-caption:8pt;--t-mono:8.2pt;
+  --font:-apple-system,"SF Pro Display","SF Pro Text","Helvetica Neue",system-ui,sans-serif;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#E9EAEC;color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
+body{padding:32px 0 48px}
+
+/* Page geometry */
+.page{width:210mm;height:297mm;background:#fff;margin:0 auto 16px;
+  box-shadow:0 1px 2px rgba(0,0,0,.08),0 8px 28px rgba(0,0,0,.10);
+  position:relative;overflow:hidden;page-break-after:always;
+  color:var(--ink);font-size:var(--t-body);line-height:1.5}
+.page:last-child{page-break-after:auto}
+.ph{position:absolute;top:0;left:0;right:0;height:18mm;padding:8mm 16mm 0;
+  display:flex;align-items:flex-end;justify-content:space-between;
+  border-bottom:1px solid var(--grey-100)}
+.ph .brand{display:flex;align-items:center;gap:8px}
+.ph .brand .dot{width:10px;height:10px;border-radius:2px;background:var(--primary)}
+.ph .brand .dot.blue{background:var(--accent-blue)}
+.ph .brand .dot.orange{background:var(--accent-orange)}
+.ph .brand .dot.dark{background:var(--primary-variant)}
+.ph .brand .t{font-size:var(--t-small);color:var(--grey-900);font-weight:600}
+.ph .meta{font-size:var(--t-caption);color:var(--grey-600)}
+.pf{position:absolute;left:0;right:0;bottom:0;height:14mm;padding:0 16mm;
+  display:flex;align-items:center;justify-content:space-between;
+  color:var(--grey-600);font-size:var(--t-caption);border-top:1px solid var(--grey-100)}
+.pf .pn b{color:var(--primary);font-weight:700;font-variant-numeric:tabular-nums}
+.pbody{position:absolute;top:18mm;left:16mm;right:16mm;bottom:14mm;padding-top:10mm}
+
+/* Typography */
+h1.t{font-size:var(--t-h1);line-height:1.05;letter-spacing:-0.01em;margin:0 0 4mm;color:var(--grey-900);font-weight:700}
+h2.t{font-size:var(--t-h2);line-height:1.15;margin:0 0 4mm;color:var(--grey-900);font-weight:700;letter-spacing:-0.005em}
+h3.t{font-size:var(--t-h3);margin:0 0 2.5mm;font-weight:600;color:var(--grey-900)}
+.pbody h2.t:not(:first-child){margin-top:7mm}
+.pbody h3.t:not(:first-child){margin-top:5mm}
+p{margin:0 0 6px}
+.lede{color:var(--grey-700);font-size:10.5pt;line-height:1.55;margin-bottom:6mm}
+.muted{color:var(--grey-600)}
+.eyebrow{font-size:var(--t-caption);letter-spacing:.18em;text-transform:uppercase;color:var(--primary);font-weight:700}
+
+/* Cover */
+.cover{background:#fff}
+.cover .rail{position:absolute;left:0;top:0;bottom:0;width:18mm;background:var(--primary)}
+.cover .rail .badge{position:absolute;top:18mm;left:50%;transform:translateX(-50%);
+  width:11mm;height:11mm;border-radius:50%;background:#fff;display:flex;
+  align-items:center;justify-content:center;color:var(--primary);font-weight:800;font-size:9pt}
+.cover .rail .vt{position:absolute;bottom:14mm;left:50%;
+  writing-mode:vertical-rl;transform:translateX(-50%) rotate(180deg);
+  color:rgba(255,255,255,.8);font-size:7.5pt;letter-spacing:.3em;text-transform:uppercase}
+.cover-body{position:absolute;left:26mm;right:14mm;top:0;bottom:0;padding:18mm 0 14mm;display:flex;flex-direction:column}
+.cover-org{display:inline-flex;gap:12px;align-items:center;color:var(--grey-900);
+  font-size:9pt;letter-spacing:.15em;text-transform:uppercase;font-weight:700;margin-bottom:7mm}
+.cover-org .logo{width:40px;height:40px;display:block;flex-shrink:0}
+.cover h1{margin:0 0 3mm;font-size:44pt;line-height:1;letter-spacing:-0.02em;color:var(--grey-900);font-weight:700}
+.cover h1 .em{color:var(--primary);display:block;font-size:38pt}
+.cover-eyebrow{display:inline-flex;gap:10px;align-items:center;color:var(--grey-600);
+  font-size:var(--t-small);letter-spacing:.2em;text-transform:uppercase;margin-bottom:6mm}
+.cover-eyebrow .pip{width:22px;height:1.5px;background:var(--primary);display:inline-block}
+.cover .sub{color:var(--grey-700);font-size:12pt;font-weight:400;max-width:138mm;line-height:1.5;margin-bottom:7mm}
+.cover .dept-chain{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  padding:4mm 5mm;border:1px solid var(--grey-200);border-left:3px solid var(--primary);
+  background:var(--grey-100);border-radius:6px;font-size:9pt;color:var(--grey-600);font-weight:500}
+.cover .dept-chain .sep{color:var(--grey-300)}
+.cover .dept-chain .current{color:var(--primary);font-weight:700}
+.cover .pillars{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cover .meta-row{margin-top:7mm;padding-top:5mm;border-top:1px solid var(--grey-100);
+  display:flex;justify-content:space-between;align-items:flex-end;
+  color:var(--grey-600);font-size:var(--t-small)}
+.meta-row .vbig{color:var(--grey-900);font-weight:700;font-size:10pt}
+.meta-row .stack{display:flex;flex-direction:column;gap:2px}
+
+/* Pillars */
+.pillar{border:1px solid var(--grey-200);border-radius:10px;padding:12px 12px 14px;background:#fff}
+.pillar .pi{width:28px;height:28px;border-radius:7px;background:var(--primary-tint);
+  display:flex;align-items:center;justify-content:center;margin-bottom:8px;font-size:14px}
+.pillar h4{margin:0 0 3px;font-size:10pt;font-weight:700}
+.pillar p{margin:0;color:var(--grey-600);font-size:var(--t-small);line-height:1.4}
+
+/* TOC */
+.toc-grid{display:flex;flex-direction:column;gap:0}
+.toc-part{font-size:var(--t-caption);letter-spacing:.18em;text-transform:uppercase;
+  color:var(--primary);font-weight:700;padding:6mm 0 3mm;border-bottom:1px solid var(--primary-tint);margin-bottom:1mm}
+.toc-part.blue{color:var(--accent-blue);border-color:var(--accent-blue-tint)}
+.toc-part.orange{color:var(--accent-orange);border-color:#F5DFDA}
+.toc-part.dark{color:var(--primary-variant);border-color:var(--primary-tint)}
+.toc-row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;
+  padding:4px 0;border-bottom:1px solid var(--grey-100);align-items:baseline;font-size:var(--t-small)}
+.toc-row .tn{color:var(--primary);font-weight:700;font-variant-numeric:tabular-nums}
+.toc-row .tt{color:var(--grey-900)}
+.toc-row .tp{color:var(--grey-600);font-variant-numeric:tabular-nums;font-weight:600}
+
+/* Part Opener */
+.part-opener{background:#fff;position:relative}
+.part-opener .accent-bar{position:absolute;left:0;top:0;bottom:0;width:8mm}
+.part-opener .po-body{position:absolute;inset:0;left:8mm;padding:28mm 18mm 12mm;display:flex;flex-direction:column}
+.part-opener .num{font-size:110pt;font-weight:800;letter-spacing:-0.04em;line-height:1;margin-bottom:4mm}
+.part-opener h1{font-size:40pt;font-weight:700;line-height:1.05;margin:0 0 5mm}
+.part-opener .desc{font-size:13pt;color:var(--grey-700);line-height:1.5;max-width:150mm;margin-bottom:0}
+.part-opener .po-pillars{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-bottom:12mm}
+.po-green .accent-bar{background:var(--primary)}
+.po-green .num{color:var(--primary)}
+.po-blue .accent-bar{background:var(--accent-blue)}
+.po-blue .num{color:var(--accent-blue)}
+.po-orange .accent-bar{background:var(--accent-orange)}
+.po-orange .num{color:var(--accent-orange)}
+.po-dark .accent-bar{background:var(--primary-variant)}
+.po-dark .num{color:var(--primary-variant)}
+
+/* Tables */
+.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--t-small)}
+.tbl thead th{background:var(--primary);color:#fff;text-align:left;padding:6px 10px;
+  font-size:var(--t-caption);letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.tbl thead th:first-child{border-top-left-radius:7px}
+.tbl thead th:last-child{border-top-right-radius:7px}
+.tbl tbody td{padding:5px 10px;border-bottom:1px solid var(--grey-100);vertical-align:top;color:var(--grey-900)}
+.tbl tbody tr:nth-child(even) td{background:#FAFAFB}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:7.5pt;font-weight:600;background:var(--primary-tint);color:var(--primary-variant)}
+.tag.b{background:var(--accent-blue-tint);color:#0A4F7A}
+.tag.o{background:#FDEEE9;color:#9B3D24}
+.tag.r{background:var(--error-tint);color:var(--error)}
+.tag.g{background:var(--primary-tint-soft);color:var(--primary-variant)}
+
+/* Callouts */
+.callout{border-radius:9px;padding:10px 13px;display:grid;grid-template-columns:18px 1fr;gap:9px;align-items:flex-start;font-size:var(--t-small);line-height:1.5;margin:5mm 0}
+.callout .ico{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:9pt;flex-shrink:0}
+.callout.info{background:var(--accent-blue-tint);color:#0A4F7A}
+.callout.info .ico{background:var(--accent-blue)}
+.callout.success{background:var(--primary-tint-soft);color:var(--primary-variant)}
+.callout.success .ico{background:var(--primary)}
+.callout.warn{background:var(--warn-bg);color:#7B5A0F}
+.callout.warn .ico{background:#C28B14}
+.callout.danger{background:#FBE9EC;color:#7A0716}
+.callout.danger .ico{background:var(--error)}
+
+/* Code */
+.code{background:#0F1A18;color:#E8F1EE;border-radius:9px;padding:10px 13px;
+  font-family:var(--mono);font-size:var(--t-mono);line-height:1.45;
+  white-space:pre-wrap;word-break:break-word;border:1px solid #08332A;margin:4mm 0}
+.code.light{background:var(--grey-150);color:var(--grey-900);border:1px solid var(--grey-200)}
+.code .k{color:#7DD3C0}.code .s{color:#C3E88D}.code .c{color:#546E7A;font-style:italic}
+.code .ok{color:#7DD3C0}.code .bad{color:#F07178}.code .dim{color:#546E7A}
+.code .lab{color:#FFCB6B}
+
+/* Phase Strip */
+.phase-strip{display:grid;gap:3px;margin:5mm 0}
+.ps{border:1px solid var(--grey-200);border-radius:6px;padding:6px 8px;text-align:center;font-size:7.5pt;line-height:1.35}
+.ps .pn{display:block;color:var(--grey-600);font-size:7pt;font-variant-numeric:tabular-nums;margin-bottom:2px}
+.ps .pl{display:block;font-weight:600;color:var(--grey-900)}
+.ps.active{background:var(--primary);border-color:var(--primary)}
+.ps.active .pn,.ps.active .pl{color:#fff}
+
+/* Architecture */
+.arch{display:grid;gap:3px;margin:5mm 0}
+.arch-cell{border-radius:7px;padding:8px 8px 9px;text-align:center}
+.arch-cell.brain{background:var(--primary);color:#fff}
+.arch-cell.blue-cell{background:var(--accent-blue);color:#fff}
+.arch-cell.orange-cell{background:var(--accent-orange);color:#fff}
+.arch-cell.tint{background:var(--primary-tint-soft);color:var(--primary-variant)}
+.arch-cell.blue-tint{background:var(--accent-blue-tint);color:#0A4F7A}
+.arch-cell.orange-tint{background:#FDEEE9;color:#9B3D24}
+.arch-cell .lbl{display:block;font-size:6.5pt;font-weight:700;letter-spacing:.12em;text-transform:uppercase;opacity:.8;margin-bottom:2px}
+.arch-cell .nm{display:block;font-size:9pt;font-weight:700;line-height:1.25;overflow-wrap:break-word}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:5mm 0}
+.kpi{border:1px solid var(--grey-200);border-radius:9px;padding:10px 12px;text-align:center}
+.kpi .v{display:block;font-size:24pt;font-weight:800;color:var(--primary);letter-spacing:-0.02em;line-height:1}
+.kpi .l{display:block;font-size:var(--t-caption);color:var(--grey-600);margin-top:3px;line-height:1.3}
+
+/* Steps */
+.steps{display:flex;flex-direction:column;gap:6px;margin:4mm 0}
+.step{display:grid;grid-template-columns:24px 1fr;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--grey-100)}
+.step:last-child{border-bottom:none}
+.step .sn{width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:9pt;flex-shrink:0;margin-top:1px}
+.step .sc h5{margin:0 0 2px;font-size:9.5pt;font-weight:700;color:var(--grey-900)}
+.step .sc p{margin:0;font-size:var(--t-small);color:var(--grey-700);line-height:1.45}
+
+/* File Tree */
+.file-tree{background:var(--grey-150);border:1px solid var(--grey-200);border-radius:9px;padding:10px 13px;
+  font-family:var(--mono);font-size:var(--t-mono);line-height:1.6;white-space:pre;margin:4mm 0;overflow:hidden}
+.file-tree .f{color:var(--primary-variant);font-weight:600}
+.file-tree .c{color:var(--grey-600)}
+.file-tree .b{color:var(--accent-bronze)}
+
+/* Cheat Sheet */
+.cheat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4mm 0}
+.cheat .card{border:1px solid var(--grey-200);border-radius:10px;padding:12px}
+.cheat .card h4{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:9.5pt;font-weight:700}
+.cheat .card h4 .ci{width:20px;height:20px;border-radius:5px;background:var(--primary-tint);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px}
+.cheat .card ul{margin:0;padding:0;list-style:none}
+.cheat .card ul li{font-size:7.8pt;color:var(--grey-700);padding:3px 0;border-bottom:1px solid var(--grey-100);line-height:1.4}
+.cheat .card ul li:last-child{border:none}
+.cheat .card ul li code{font-family:var(--mono);font-size:7pt;background:var(--grey-150);padding:1px 4px;border-radius:3px;color:var(--primary-variant)}
+
+/* Item Rows */
+.item-rows{display:flex;flex-direction:column;gap:0;margin:4mm 0}
+.ir{display:grid;grid-template-columns:38% 62%;gap:8px;padding:5px 0;border-bottom:1px solid var(--grey-100);font-size:var(--t-small)}
+.ir:last-child{border:none}
+.ir .ik{font-weight:700;color:var(--grey-900)}
+.ir .iv{color:var(--grey-700)}
+
+/* DEWA list */
+ul.dewa{margin:3mm 0;padding:0;list-style:none}
+ul.dewa li{padding:2px 0 2px 14px;font-size:var(--t-small);color:var(--grey-700);line-height:1.45;position:relative}
+ul.dewa li::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:2px;background:var(--primary)}
+
+/* Layout */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+
+/* Section number */
+.section-no{display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:8px;background:var(--primary);
+  color:#fff;font-weight:800;font-size:11pt;margin-bottom:4mm}
+
+/* Spec band */
+.spec-band{background:var(--grey-150);border-radius:6px;padding:5px 12px;margin:4mm 0;
+  display:flex;flex-wrap:wrap;gap:4px 18px;font-size:7.5pt;align-items:center}
+.spec-band .sb-l{color:var(--grey-600);letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.spec-band .sb-v{color:var(--grey-900);font-weight:700;margin-left:4px}
+.spec-band .sb-sep{color:var(--grey-300)}
+
+/* Print */
+@page{size:A4 portrait;margin:0}
+@media print{
+  body{background:#fff;padding:0}
+  .page{box-shadow:none;margin:0}
+  *,*::before,*::after{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 01 — COVER -->
+<section class="page cover" data-screen-label="01 Cover">
+  <div class="rail">
+    <div class="badge">v1.0</div>
+    <div class="vt">DEWA · ADK · PreMortem + StandupSync</div>
+  </div>
+  <div class="cover-body">
+    <div class="cover-org">
+      <svg class="logo" viewBox="0 0 668 671" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="DEWA">
+        <path d="M10.1124 305.569C10.1124 298.585 10.6179 291.713 11.0673 284.841C15.9354 217.814 44.5437 154.743 91.7252 107.017C174.308 23.6863 300.184 1.34806 406.269 51.1975C417.994 53.1093 429.602 55.6857 441.037 58.9143C395.293 30.0236 342.319 14.731 288.259 14.8104C128.606 15.3074 -0.432866 145.467 0.00208065 305.569C-0.305456 386.865 33.4917 464.544 93.1295 519.611C86.9002 509.263 81.2739 498.562 76.2789 487.561C33.3643 436.706 9.9081 372.19 10.1124 305.569Z" fill="url(#dp0)"/>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M69.8974 238.657C118.591 122.275 232.474 46.8334 358.328 47.5861C440.528 47.8248 519.265 80.8113 577.205 139.284C635.145 197.757 667.538 276.923 667.255 359.355C667.207 485.567 591.257 599.289 474.895 647.381C358.533 695.473 224.735 668.439 136.024 578.911C47.3124 489.383 21.2034 355.04 69.8974 238.657ZM104.028 407.829C141.631 497.778 229.618 556.106 326.876 555.559C459.133 555.093 566.015 447.279 565.704 314.649C565.68 217.115 507.001 129.224 417.086 92.043C327.171 54.8619 223.771 75.7312 155.2 144.9C86.6292 214.068 66.4251 317.88 104.028 407.829Z" fill="url(#dp1)"/>
+        <path d="M576.899 305.624C576.946 205.481 525.699 112.332 441.196 58.969C429.649 55.7469 417.928 53.1893 406.09 51.3086C435.534 65.1455 462.352 84.0148 485.344 107.072C503.231 125.269 518.608 145.785 531.065 168.074C592.302 277.791 573.598 414.923 485.232 504.12C433.183 556.683 362.369 586.243 288.502 586.243C214.634 586.243 143.82 556.683 91.7714 504.12C86.4915 498.881 81.6049 493.305 76.8306 487.616C81.8256 498.617 87.4519 509.318 93.6811 519.666C146.707 569.068 216.433 596.481 288.81 596.383C448.423 595.855 577.396 465.686 576.899 305.624Z" fill="url(#dp2)"/>
+        <path d="M143.165 94.6795C196.528 40.7436 269.157 10.407 344.922 10.407C420.687 10.407 493.316 40.7436 546.679 94.6795C564.991 113.337 580.761 134.341 593.58 157.146C604.928 170.603 615.148 184.978 624.136 200.123C577.14 62.8162 437.859 -20.1202 295.147 4.22383C152.435 28.5679 48.3321 153.021 49.2512 298.188C49.2512 308.947 49.869 319.367 50.88 329.788C52.5544 311.927 55.7872 294.248 60.541 276.953C65.4526 208.24 94.7674 143.569 143.165 94.6795Z" fill="url(#dp3)"/>
+        <path d="M344.689 596.322C440.64 595.67 530.396 548.677 585.776 470.097C641.157 391.517 655.372 290.985 623.958 200.063C614.971 184.918 604.751 170.543 593.403 157.086C656.087 269.584 636.959 410.103 546.502 501.637C493.169 555.629 420.529 586.004 344.745 586.004C268.961 586.004 196.321 555.629 142.987 501.637C89.2914 447.618 59.2223 374.401 59.4088 298.128C59.4088 291.031 59.8019 283.934 60.3636 276.893C55.6097 294.188 52.377 311.867 50.7026 329.728C66.3003 480.906 193.131 595.92 344.689 596.322Z" fill="url(#dp4)"/>
+        <defs>
+          <linearGradient id="dp0" x1="502.056" y1="128.929" x2="202.813" y2="-63.2795" gradientUnits="userSpaceOnUse"><stop stop-color="#FEF6F5"/><stop offset=".76" stop-color="#E4003C"/></linearGradient>
+          <linearGradient id="dp1" x1="46.3399" y1="339.767" x2="475.329" y2="780.141" gradientUnits="userSpaceOnUse"><stop stop-color="#F5F9ED"/><stop offset=".24" stop-color="#98C449"/><stop offset="1" stop-color="#006D5C"/></linearGradient>
+          <linearGradient id="dp2" x1="54.066" y1="-130.926" x2="54.066" y2="730.807" gradientUnits="userSpaceOnUse"><stop stop-color="white"/><stop offset="1" stop-color="#97C347"/></linearGradient>
+          <linearGradient id="dp3" x1="698.62" y1="252.618" x2="682.82" y2="-20.4573" gradientUnits="userSpaceOnUse"><stop stop-color="#EAF0FA"/><stop offset="1" stop-color="#0070BA"/></linearGradient>
+          <linearGradient id="dp4" x1="175.762" y1="145.888" x2="175.762" y2="580.911" gradientUnits="userSpaceOnUse"><stop stop-color="white"/><stop offset="1" stop-color="#C7DC9A"/></linearGradient>
+        </defs>
+      </svg>
+      Dubai Electricity &amp; Water Authority
+    </div>
+    <h1>PreMortem<span class="em">+ StandupSync</span></h1>
+    <div class="cover-eyebrow"><span class="pip"></span>Agent Development Kit · User Manual</div>
+    <p class="sub">AI-powered cross-department standup intelligence, Microsoft Excel task governance, and predictive DevOps risk prevention — purpose-built for DEWA.</p>
+    <div class="dept-chain">
+      <span>Innovation and the Future</span>
+      <span class="sep">›</span>
+      <span>Digital Solutions and Services</span>
+      <span class="sep">›</span>
+      <span class="current">AI Governance Platform</span>
+    </div>
+    <div class="pillars" style="margin-top:6mm">
+      <div class="pillar">
+        <div class="pi">📡</div>
+        <h4>Capture</h4>
+        <p>Auto-extract structured tasks from every department's daily standup via Microsoft Teams</p>
+      </div>
+      <div class="pillar">
+        <div class="pi">📋</div>
+        <h4>Govern</h4>
+        <p>Enforce accountability with Microsoft Excel tracking and mandatory GitHub PR checklists</p>
+      </div>
+      <div class="pillar">
+        <div class="pi">🛡️</div>
+        <h4>Prevent</h4>
+        <p>Predict infrastructure risks before deployment and route AI remediations through human approval</p>
+      </div>
+    </div>
+    <div class="meta-row">
+      <div class="stack"><span>Document</span><span class="vbig">Version 1.0</span></div>
+      <div class="stack"><span>Released</span><span class="vbig">May 2026</span></div>
+      <div class="stack"><span>Classification</span><span class="vbig">Internal Use Only</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 02 — TOC -->
+<section class="page" data-screen-label="02 Contents">
+  <header class="ph">
+    <div class="brand"><span class="dot"></span><span class="t">PreMortem + StandupSync</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Contents</h1>
+    <div class="toc-grid">
+      <div class="toc-part">00 · Foundation</div>
+      <div class="toc-row"><span class="tn">0.1</span><span class="tt">Architecture &amp; Mental Model</span><span class="tp">04</span></div>
+      <div class="toc-row"><span class="tn">0.2</span><span class="tt">Lifecycle &amp; End-to-End Flow</span><span class="tp">05</span></div>
+      <div class="toc-row"><span class="tn">0.3</span><span class="tt">Department Coverage &amp; Platform KPIs</span><span class="tp">06</span></div>
+
+      <div class="toc-part blue">01 · StandupSync — Ingest, Register &amp; Enforce</div>
+      <div class="toc-row"><span class="tn">1.1</span><span class="tt">Layer 1 — Standup Intelligence</span><span class="tp">08</span></div>
+      <div class="toc-row"><span class="tn">1.2</span><span class="tt">Layer 2 — Microsoft Excel Task Registry</span><span class="tp">09</span></div>
+      <div class="toc-row"><span class="tn">1.3</span><span class="tt">Layer 3 — PR Checklist Gate</span><span class="tp">10</span></div>
+
+      <div class="toc-part orange">02 · PreMortem — Detect, Remediate &amp; Govern</div>
+      <div class="toc-row"><span class="tn">2.1</span><span class="tt">Layer 4 — Infrastructure Risk Intelligence</span><span class="tp">12</span></div>
+      <div class="toc-row"><span class="tn">2.2</span><span class="tt">Layers 5 &amp; 6 — Remediation &amp; Teams Approval</span><span class="tp">13</span></div>
+      <div class="toc-row"><span class="tn">2.3</span><span class="tt">Layers 7 &amp; 8 — Remediation PR &amp; GitOps</span><span class="tp">14</span></div>
+
+      <div class="toc-part dark">03 · Configuration &amp; Operations</div>
+      <div class="toc-row"><span class="tn">3.1</span><span class="tt">Prerequisites &amp; Environment Variables</span><span class="tp">16</span></div>
+      <div class="toc-row"><span class="tn">3.2</span><span class="tt">Module Reference &amp; File Structure</span><span class="tp">17</span></div>
+
+      <div class="toc-part">Quick Reference &amp; Operations</div>
+      <div class="toc-row"><span class="tn">—</span><span class="tt">Skill Command Cheat Sheet</span><span class="tp">18</span></div>
+      <div class="toc-row"><span class="tn">—</span><span class="tt">Troubleshooting</span><span class="tp">19</span></div>
+      <div class="toc-row"><span class="tn">—</span><span class="tt">Document Sign-off</span><span class="tp">20</span></div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>02</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 03 — FOUNDATION OPENER -->
+<section class="page part-opener po-green" data-screen-label="03 Foundation Opener">
+  <div class="accent-bar"></div>
+  <div class="po-body">
+    <div class="num">00</div>
+    <h1>Foundation</h1>
+    <p class="desc">The architecture, lifecycle, and safety principles that govern every layer of the PreMortem + StandupSync platform — read this before any other section.</p>
+    <div class="po-pillars">
+      <div class="pillar">
+        <div class="pi">🏗️</div>
+        <h4>Architecture</h4>
+        <p>8 interconnected layers spanning Teams, Microsoft Excel, GitHub, Claude AI, and ArgoCD</p>
+      </div>
+      <div class="pillar">
+        <div class="pi">🔄</div>
+        <h4>Lifecycle</h4>
+        <p>Standup → Extract → Register → Gate → Predict → Approve → Deploy — end to end</p>
+      </div>
+      <div class="pillar">
+        <div class="pi">🛡️</div>
+        <h4>Safety</h4>
+        <p>AI never deploys. Every remediation requires explicit human approval before GitOps acts</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 04 — Architecture -->
+<section class="page" data-screen-label="04 Architecture">
+  <header class="ph">
+    <div class="brand"><span class="dot"></span><span class="t">0.1 — Architecture &amp; Mental Model</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Architecture &amp; Mental Model</h1>
+    <p class="lede">The platform replaces reactive incident response with predictive governance — every standup task is traceable from meeting room to production deployment.</p>
+
+    <div class="arch" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      <div class="arch-cell blue-cell"><span class="lbl">Layer 01</span><span class="nm">Standup Intelligence</span></div>
+      <div class="arch-cell blue-tint"><span class="lbl">Layer 02</span><span class="nm">Microsoft Excel Registry</span></div>
+      <div class="arch-cell blue-tint"><span class="lbl">Layer 03</span><span class="nm">PR Checklist Gate</span></div>
+      <div class="arch-cell brain"><span class="lbl">Layer 04</span><span class="nm">Risk Intelligence</span></div>
+    </div>
+    <div class="arch" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:3px">
+      <div class="arch-cell tint"><span class="lbl">Layer 05</span><span class="nm">AI Remediation Engine</span></div>
+      <div class="arch-cell orange-tint"><span class="lbl">Layer 06</span><span class="nm">Teams Approval Workflow</span></div>
+      <div class="arch-cell orange-tint"><span class="lbl">Layer 07</span><span class="nm">Remediation PR Generation</span></div>
+      <div class="arch-cell brain"><span class="lbl">Layer 08</span><span class="nm">GitOps Deployment</span></div>
+    </div>
+
+    <h2 class="t">Layer Responsibilities</h2>
+    <table class="tbl">
+      <thead><tr><th style="width:8%">#</th><th style="width:28%">Layer</th><th>What it does</th><th style="width:20%">Technology</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td>Standup Intelligence</td><td>Graph API fetches Teams transcript → Claude extracts department tasks</td><td><span class="tag b">Graph API</span></td></tr>
+        <tr><td>02</td><td>Microsoft Excel Registry</td><td>Upserts structured tasks into department tab — live, searchable, audit-ready</td><td><span class="tag g">MS Graph</span></td></tr>
+        <tr><td>03</td><td>PR Checklist Gate</td><td>Pending tasks injected into PR body; GitHub Actions posts a visibility comment with pending task count — merge is never blocked</td><td><span class="tag">GitHub Actions</span></td></tr>
+        <tr><td>04</td><td>Risk Intelligence</td><td>Claude analyses infra diffs + metrics → risk JSON with confidence score</td><td><span class="tag b">Claude AI</span></td></tr>
+        <tr><td>05</td><td>AI Remediation Engine</td><td>Claude generates safer config diff with rollback strategy and risk-reduction estimate</td><td><span class="tag b">Claude AI</span></td></tr>
+        <tr><td>06</td><td>Teams Approval</td><td>Adaptive Card surfaces predicted risk to a human; Approve/Reject captured</td><td><span class="tag o">Teams</span></td></tr>
+        <tr><td>07</td><td>Remediation PR</td><td>AI-authored GitHub PR with full evidence, linked to originating standup task</td><td><span class="tag">GitHub</span></td></tr>
+        <tr><td>08</td><td>GitOps Deployment</td><td>PR merge triggers ArgoCD sync → Kubernetes rollout → task marked Done in Sheets</td><td><span class="tag g">ArgoCD</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>04</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 05 — Lifecycle -->
+<section class="page" data-screen-label="05 Lifecycle">
+  <header class="ph">
+    <div class="brand"><span class="dot"></span><span class="t">0.2 — Lifecycle &amp; End-to-End Flow</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Lifecycle &amp; End-to-End Flow</h1>
+    <p class="lede">From the moment a team member speaks in standup to the moment a deployment lands safely in production — every step is automated, governed, and auditable.</p>
+
+    <div class="phase-strip" style="grid-template-columns:repeat(8,minmax(0,1fr))">
+      <div class="ps active"><span class="pn">01</span><span class="pl">Standup</span></div>
+      <div class="ps"><span class="pn">02</span><span class="pl">Extract</span></div>
+      <div class="ps"><span class="pn">03</span><span class="pl">Register</span></div>
+      <div class="ps"><span class="pn">04</span><span class="pl">PR Gate</span></div>
+      <div class="ps"><span class="pn">05</span><span class="pl">Risk Scan</span></div>
+      <div class="ps"><span class="pn">06</span><span class="pl">Approval</span></div>
+      <div class="ps"><span class="pn">07</span><span class="pl">Remediate</span></div>
+      <div class="ps"><span class="pn">08</span><span class="pl">Deploy</span></div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="sn">1</div>
+        <div class="sc"><h5>Daily Standup (Microsoft Teams)</h5><p>Team holds standup in Teams. A scheduled job fires after the meeting and calls Microsoft Graph API to fetch the transcript by meeting ID.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">2</div>
+        <div class="sc"><h5>Claude Extracts Tasks</h5><p>Transcript sent to Claude with a department-specific system prompt. Claude returns structured JSON tasks — engineer, service, task description, risk category, status.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">3</div>
+        <div class="sc"><h5>Microsoft Excel Upsert</h5><p>Tasks written to the department's Microsoft Excel worksheet via MS Graph API. New tasks are inserted; existing task IDs are updated. Workbook URL posted to Teams.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">4</div>
+        <div class="sc"><h5>PR Checklist Gate</h5><p>Developer opens a PR → GitHub webhook fires → pending standup tasks injected into PR body as a checklist. GitHub Actions posts a visibility comment showing pending vs. completed items — merge is never blocked.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">5</div>
+        <div class="sc"><h5>Infrastructure Risk Scan</h5><p>Claude analyses the PR diff against Kubernetes YAML, Terraform, and Prometheus metrics. Returns risk level, confidence score, and reasoning chain.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">6</div>
+        <div class="sc"><h5>Teams Approval Card</h5><p>Adaptive Card posted with predicted failure, confidence, and suggested fix. Human engineer clicks Approve or Reject — AI waits.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">7</div>
+        <div class="sc"><h5>AI Remediation PR</h5><p>On approval: Claude creates a remediation branch, commits the safer config, and opens a PR with full evidence linked to the originating standup task.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">8</div>
+        <div class="sc"><h5>GitOps Deployment &amp; Audit</h5><p>PR merge triggers ArgoCD sync → Kubernetes rollout. Task marked Done in Microsoft Excel. Full event chain written to SQLite audit log.</p></div>
+      </div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>05</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 06 — Departments -->
+<section class="page" data-screen-label="06 Departments">
+  <header class="ph">
+    <div class="brand"><span class="dot"></span><span class="t">0.3 — Department Coverage &amp; Platform KPIs</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Department Coverage &amp; Platform KPIs</h1>
+    <p class="lede">One platform, zero per-team configuration. The skill detects the department from the standup invocation and applies the correct schema automatically.</p>
+
+    <div class="kpis">
+      <div class="kpi"><span class="v">10</span><span class="l">Departments Supported</span></div>
+      <div class="kpi"><span class="v">8</span><span class="l">Architecture Layers</span></div>
+      <div class="kpi"><span class="v">0</span><span class="l">Manual Capture Steps</span></div>
+      <div class="kpi"><span class="v">82%</span><span class="l">Avg Risk Reduction</span></div>
+    </div>
+
+    <h2 class="t">Supported Departments</h2>
+    <table class="tbl">
+      <thead><tr><th style="width:22%">Department</th><th style="width:18%">Sheets Tab</th><th>Key Schema Fields</th><th style="width:16%">Risk / Priority Axis</th></tr></thead>
+      <tbody>
+        <tr><td>DevOps</td><td><code>devops</code></td><td>engineer, service, task, risk_category, environment</td><td><span class="tag g">5 risk categories</span></td></tr>
+        <tr><td>AI Deployment</td><td><code>ai-deployment</code></td><td>engineer, model_name, service, task, risk_category, environment</td><td><span class="tag b">Model Drift</span></td></tr>
+        <tr><td>Testing / QA</td><td><code>testing</code></td><td>tester, test_type, component, task, priority, target_sprint</td><td><span class="tag">P0–P3</span></td></tr>
+        <tr><td>INTF (Integration)</td><td><code>intf</code></td><td>engineer, integration_point, system_a, system_b, task</td><td><span class="tag g">API Contract</span></td></tr>
+        <tr><td>AI Adoption</td><td><code>ai-adoption</code></td><td>owner, use_case, business_unit, task, adoption_stage, kpi</td><td><span class="tag b">5 stages</span></td></tr>
+        <tr><td>Finance</td><td><code>finance</code></td><td>owner, process, system, task, impact_area, deadline</td><td><span class="tag o">5 impact areas</span></td></tr>
+        <tr><td>Security</td><td><code>security</code></td><td>engineer, control_domain, asset, task, severity, compliance_tag</td><td><span class="tag r">CRITICAL–LOW</span></td></tr>
+        <tr><td>Data Governance</td><td><code>data-governance</code></td><td>owner, dataset, domain, task, governance_tier, regulation</td><td><span class="tag">Platinum–Bronze</span></td></tr>
+        <tr><td>SAP</td><td><code>sap</code></td><td>consultant, module, transaction_code, task, change_type, go_live_date</td><td><span class="tag g">9 modules</span></td></tr>
+        <tr><td>Business</td><td><code>business</code></td><td>owner, initiative, stakeholder, task, priority, kpi</td><td><span class="tag b">Critical–Low</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout success">
+      <div class="ico">✓</div>
+      <div>All department schemas share a common base — <strong>task_id · owner · task · status · standup_date · pr_linked · pr_url</strong> — ensuring cross-department reporting and audit are always consistent.</div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>06</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 07 — PART 01 OPENER -->
+<section class="page part-opener po-blue" data-screen-label="07 StandupSync Opener">
+  <div class="accent-bar"></div>
+  <div class="po-body">
+    <div class="num">01</div>
+    <h1>StandupSync</h1>
+    <p class="desc">Captures structured tasks from every department's daily standup, writes them to a live Microsoft Excel registry, and enforces them as mandatory PR checklists — so no undocumented change can reach production.</p>
+    <div class="po-pillars">
+      <div class="pillar">
+        <div class="pi" style="background:#DAEBF6">📡</div>
+        <h4>Ingest</h4>
+        <p>Microsoft Graph API + Claude extracts intent from every meeting transcript automatically</p>
+      </div>
+      <div class="pillar">
+        <div class="pi" style="background:#DAEBF6">📊</div>
+        <h4>Register</h4>
+        <p>Department tasks land in Microsoft Excel within minutes of standup ending — live and searchable</p>
+      </div>
+      <div class="pillar">
+        <div class="pi" style="background:#DAEBF6">🔒</div>
+        <h4>Enforce</h4>
+        <p>PR cannot merge until every standup task is explicitly checked — no exceptions, no workarounds</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 08 — Layer 1 Standup -->
+<section class="page" data-screen-label="08 Standup Intelligence">
+  <header class="ph">
+    <div class="brand"><span class="dot blue"></span><span class="t">1.1 — Layer 1: Standup Intelligence</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Standup Intelligence</h1>
+    <p class="lede">Microsoft Graph API fetches the raw meeting transcript; Claude transforms unstructured conversation into department-specific structured tasks — fully automated, no human transcription required.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="sn">1</div>
+        <div class="sc"><h5>Scheduled Trigger</h5><p>A cron job fires after each department's standup slot (configured in <code>TEAMS_MEETING_IDS</code>). The meeting ID is looked up by department key.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">2</div>
+        <div class="sc"><h5>Graph API Transcript Fetch</h5><p><code>GET /communications/callRecords/{id}/sessions?$expand=segments</code> — returns the raw transcript. Auth uses client credentials flow (tenant ID + client secret).</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">3</div>
+        <div class="sc"><h5>Claude Extraction</h5><p>Transcript + department system prompt sent to <code>claude-sonnet-4-6</code>. Prompt caching enabled on the system prompt (≥ 1024 tokens) for cost efficiency across repeated daily runs.</p></div>
+      </div>
+      <div class="step">
+        <div class="sn">4</div>
+        <div class="sc"><h5>Structured JSON Output</h5><p>Claude returns a JSON array of tasks. Each task receives a deterministic <code>task_id</code> (<code>DEPT-YYYY-MM-DD-NNN</code>) before being written to Sheets.</p></div>
+      </div>
+    </div>
+
+    <h2 class="t">Example Output — Security Department</h2>
+    <div class="code"><span class="c">// POST /standup  { "department": "security", "transcript": "..." }</span>
+[
+  {
+    <span class="lab">"task_id"</span>: <span class="s">"SEC-2026-05-14-001"</span>,
+    <span class="lab">"engineer"</span>: <span class="s">"Aisha"</span>,
+    <span class="lab">"control_domain"</span>: <span class="s">"Identity &amp; Access Management"</span>,
+    <span class="lab">"asset"</span>: <span class="s">"AD Connect Sync"</span>,
+    <span class="lab">"task"</span>: <span class="s">"Rotate service account credentials before expiry"</span>,
+    <span class="lab">"severity"</span>: <span class="s">"HIGH"</span>,
+    <span class="lab">"compliance_tag"</span>: <span class="s">"ISO27001-A.9.2"</span>,
+    <span class="lab">"status"</span>: <span class="s">"Pending"</span>,
+    <span class="lab">"standup_date"</span>: <span class="s">"2026-05-14"</span>
+  }
+]</div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>08</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 09 — Layer 2 Microsoft Excel -->
+<section class="page" data-screen-label="09 Microsoft Excel Registry">
+  <header class="ph">
+    <div class="brand"><span class="dot blue"></span><span class="t">1.2 — Layer 2: Microsoft Excel Task Registry</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Microsoft Excel Task Registry</h1>
+    <p class="lede">A single Microsoft Excel workbook with one tab per department is the live source of truth for all tasks — visible to every stakeholder, updated within minutes of each standup.</p>
+
+    <h2 class="t">Sheet Structure</h2>
+    <table class="tbl">
+      <thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>task_id</code></td><td>String</td><td>Deterministic: <code>DEPT-YYYY-MM-DD-NNN</code>. Primary key for upserts.</td></tr>
+        <tr><td><code>owner</code></td><td>String</td><td>Name extracted from transcript (engineer / consultant / analyst)</td></tr>
+        <tr><td><code>task</code></td><td>String</td><td>Full task description as extracted by Claude</td></tr>
+        <tr><td><code>status</code></td><td>Enum</td><td><code>Pending → In Progress → Blocked → Done</code></td></tr>
+        <tr><td><code>standup_date</code></td><td>Date</td><td>ISO 8601 date of the standup meeting</td></tr>
+        <tr><td><code>pr_linked</code></td><td>Boolean</td><td>Set TRUE when a PR references this task_id</td></tr>
+        <tr><td><code>pr_url</code></td><td>URL</td><td>Link to the GitHub PR that covers this task</td></tr>
+        <tr><td><em>dept-specific cols</em></td><td>—</td><td>e.g. <code>severity</code>, <code>module</code>, <code>risk_category</code> per department schema</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="t">Upsert Logic (MS Graph)</h2>
+    <div class="code light"><span class="k">def</span> upsert_tasks(dept: str, tasks: list[dict]) -> str:
+    token = get_graph_token(GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET)
+    headers = {<span class="s">"Authorization"</span>: <span class="s">f"Bearer {token}"</span>}
+    ws_url = <span class="s">f"https://graph.microsoft.com/v1.0/drives/{EXCEL_DRIVE_ID}/items/{EXCEL_WORKBOOK_ID}/workbook/worksheets/{dept}"</span>
+    rows = requests.get(<span class="s">f"{ws_url}/usedRange"</span>, headers=headers).json()[<span class="s">"values"</span>]
+    existing = {r[0]: i <span class="k">for</span> i, r <span class="k">in</span> enumerate(rows[1:], 2)}  <span class="c"># skip header row</span>
+    <span class="k">for</span> task <span class="k">in</span> tasks:
+        tid = task[<span class="s">"task_id"</span>]
+        <span class="k">if</span> tid <span class="k">in</span> existing:
+            requests.patch(<span class="s">f"{ws_url}/cell(row={existing[tid]},column=1)"</span>, headers=headers, json={<span class="s">"values"</span>: [row_values(task)]})
+        <span class="k">else</span>:
+            requests.post(<span class="s">f"{ws_url}/tables/0/rows"</span>, headers=headers, json={<span class="s">"values"</span>: [row_values(task)]})
+    <span class="k">return</span> <span class="s">f"https://dewa.sharepoint.com/workbooks/{EXCEL_WORKBOOK_ID}"</span></div>
+
+    <div class="grid-2" style="gap:8px;margin-top:5mm">
+      <div class="callout info">
+        <div class="ico">i</div>
+        <div>Status is never auto-regressed. Only a human can move a task from <strong>Done</strong> back to <strong>In Progress</strong>.</div>
+      </div>
+      <div class="callout success">
+        <div class="ico">✓</div>
+        <div>After each upsert, the Excel workbook URL is posted to the department's Teams channel as a notification.</div>
+      </div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>09</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 10 — Layer 3 PR Checklist -->
+<section class="page" data-screen-label="10 PR Checklist Gate">
+  <header class="ph">
+    <div class="brand"><span class="dot blue"></span><span class="t">1.3 — Layer 3: PR Checklist Gate</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">PR Checklist Gate</h1>
+    <p class="lede">Every GitHub PR receives an auto-generated checklist from that day's pending standup tasks. A GitHub Actions workflow posts a visibility comment listing any pending items — developers can always merge, but the team stays informed.</p>
+
+    <h2 class="t">Correlation Outcomes</h2>
+    <table class="tbl">
+      <thead><tr><th style="width:20%">Outcome</th><th>Meaning</th><th style="width:28%">System Action</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag g">MATCH</span></td><td>PR diff directly covers a standup task</td><td>Task status updated to <em>In Progress</em> in Sheets</td></tr>
+        <tr><td><span class="tag b">PARTIAL</span></td><td>PR contains changes not described in any standup task</td><td>Flag added to PR; reviewer notified via Teams</td></tr>
+        <tr><td><span class="tag r">UNKNOWN</span></td><td>No standup task references these changes at all</td><td>Warning comment posted on PR; engineer notified to link or create a task in Excel</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="t">GitHub Actions Notification</h2>
+    <div class="code"><span class="c"># .github/workflows/standup-checklist.yml</span>
+<span class="k">name</span>: Standup Task Checklist Notification
+<span class="k">on</span>:
+  pull_request:
+    types: [opened, edited, synchronize]
+<span class="k">jobs</span>:
+  checklist-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - <span class="k">name</span>: Notify pending standup tasks
+        uses: actions/github-script@v7
+        with:
+          script: |
+            <span class="k">const</span> body = context.payload.pull_request.body || <span class="s">''</span>;
+            <span class="k">const</span> unchecked = (body.match(<span class="s">/- \[ \]/g</span>) || []).length;
+            <span class="k">const</span> checked = (body.match(<span class="s">/- \[x\]/gi</span>) || []).length;
+            <span class="k">if</span> (unchecked > 0) {
+              <span class="k">await</span> github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: <span class="s">`⚠️ **Standup Reminder** — ${unchecked} task(s) pending, ${checked} completed.\nYou may merge — this is a visibility reminder, not a blocker.`</span>
+              });
+              core.warning(<span class="s">`${unchecked} standup task(s) still pending. Merge is allowed.`</span>);
+            } <span class="k">else</span> {
+              core.notice(<span class="s">'All standup tasks checked ✓'</span>);
+            }</div>
+
+    <h2 class="t">Sample Injected Checklist</h2>
+    <div class="code light">## Standup Task Checklist
+<span class="c">> Auto-generated from daily standup — check items as you complete them. Pending tasks are visible to reviewers.</span>
+
+### Security Tasks · 2026-05-14
+- [ ] `SEC-001` Rotate service account credentials — *Aisha* (IAM)
+- [ ] `SEC-002` Patch CVE-2026-1234 on API gateway — *Omar*
+
+### DevOps Tasks · 2026-05-14
+- [ ] `DEVOPS-001` Increase memory limit for checkout-service — *John*</div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>10</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 11 — PART 02 OPENER -->
+<section class="page part-opener po-orange" data-screen-label="11 PreMortem Opener">
+  <div class="accent-bar"></div>
+  <div class="po-body">
+    <div class="num">02</div>
+    <h1>PreMortem</h1>
+    <p class="desc">Predicts infrastructure failures before deployment using Claude AI, surfaces them through Microsoft Teams approval cards, and generates human-approved remediation pull requests — all without bypassing GitOps governance.</p>
+    <div class="po-pillars">
+      <div class="pillar">
+        <div class="pi" style="background:#FDEEE9">🔍</div>
+        <h4>Detect</h4>
+        <p>Claude analyses infra diffs and Prometheus metrics to predict failures before they reach production</p>
+      </div>
+      <div class="pillar">
+        <div class="pi" style="background:#FDEEE9">⚙️</div>
+        <h4>Remediate</h4>
+        <p>AI generates safer configuration alternatives with confidence-weighted risk reduction estimates</p>
+      </div>
+      <div class="pillar">
+        <div class="pi" style="background:#FDEEE9">👤</div>
+        <h4>Govern</h4>
+        <p>Every AI suggestion requires explicit human approval via Teams before a single line of config changes</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 12 — Layer 4 Risk -->
+<section class="page" data-screen-label="12 Risk Intelligence">
+  <header class="ph">
+    <div class="brand"><span class="dot orange"></span><span class="t">2.1 — Layer 4: Infrastructure Risk Intelligence</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Infrastructure Risk Intelligence</h1>
+    <p class="lede">Claude receives the full engineering context — infra diffs, live metrics, historical incidents — and returns a risk assessment before deployment, not after.</p>
+
+    <h2 class="t">What Claude Analyses</h2>
+    <div class="item-rows">
+      <div class="ir"><span class="ik">Kubernetes YAML diff</span><span class="iv">Resource limits, replica counts, pod affinity, config changes</span></div>
+      <div class="ir"><span class="ik">Terraform / Helm HCL</span><span class="iv">Infrastructure mutations: VPC changes, security groups, scaling policies</span></div>
+      <div class="ir"><span class="ik">Prometheus metrics</span><span class="iv"><code>peak_memory_usage</code>, <code>restart_count</code>, <code>cpu_throttle_pct</code>, <code>latency_p99</code></span></div>
+      <div class="ir"><span class="ik">Historical incidents</span><span class="iv">Past OOMKills, CrashLoopBackoffs, scaling failures — retrieved from audit log</span></div>
+      <div class="ir"><span class="ik">Standup task context</span><span class="iv">The originating task_id and risk_category from the standup registry</span></div>
+    </div>
+
+    <h2 class="t">Risk Output Schema</h2>
+    <div class="code"><span class="c">// Claude output — Layer 4</span>
+{
+  <span class="lab">"task_id"</span>:      <span class="s">"DEVOPS-2026-05-14-001"</span>,
+  <span class="lab">"risk"</span>:         <span class="s">"HIGH"</span>,
+  <span class="lab">"prediction"</span>:   <span class="s">"OOMKill likely within 2 hours of deployment"</span>,
+  <span class="lab">"confidence"</span>:   <span class="ok">82</span>,
+  <span class="lab">"risk_category"</span>: <span class="s">"Resource Optimization"</span>,
+  <span class="lab">"reasoning"</span>: [
+    <span class="s">"Proposed memory limit (512Mi) is 23% below current peak (666Mi)"</span>,
+    <span class="s">"Service restarted 4 times last 48h — pattern matches prior OOMKill"</span>,
+    <span class="s">"Historical incident similarity score: 0.87"</span>
+  ]
+}</div>
+
+    <div class="callout warn">
+      <div class="ico">!</div>
+      <div>Risk levels: <strong>LOW</strong> (confidence &lt; 40) · <strong>MEDIUM</strong> (40–69) · <strong>HIGH</strong> (70–89) · <strong>CRITICAL</strong> (≥ 90). CRITICAL findings trigger an immediate Teams alert regardless of PR status.</div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>12</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 13 — Layers 5 & 6 -->
+<section class="page" data-screen-label="13 Remediation and Approval">
+  <header class="ph">
+    <div class="brand"><span class="dot orange"></span><span class="t">2.2 — Layers 5 &amp; 6: Remediation &amp; Teams Approval</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Remediation &amp; Teams Approval</h1>
+    <p class="lede">Claude generates a safer configuration alternative with a confidence-weighted risk reduction; a human engineer approves or rejects through a Teams Adaptive Card before any file is changed.</p>
+
+    <div class="callout danger">
+      <div class="ico">!</div>
+      <div><strong>Core Safety Principle — AI NEVER deploys directly.</strong> The system cannot bypass this rule. No approval card = no remediation branch = no deployment. Always: AI Suggests → Human Approves → GitOps Deploys.</div>
+    </div>
+
+    <h2 class="t">Remediation Output (Layer 5)</h2>
+    <div class="code"><span class="c">// Claude Layer 5 — safer configuration diff</span>
+{
+  <span class="lab">"config_diff"</span>: <span class="s">"resources.limits.memory: 512Mi → 768Mi"</span>,
+  <span class="lab">"rollback_strategy"</span>: <span class="s">"Revert branch claude/prevent-oom-DEVOPS-001"</span>,
+  <span class="lab">"confidence"</span>: <span class="ok">91</span>,
+  <span class="lab">"explanation"</span>: <span class="s">"Increasing limit 50% above peak prevents OOMKill"</span>,
+  <span class="lab">"risk_reduction"</span>: <span class="s">"82% → 19%"</span>
+}</div>
+
+    <h2 class="t">Teams Adaptive Card (Layer 6)</h2>
+    <div class="code light">⚠️  Predicted Production Risk
+────────────────────────────────────────
+Service:       checkout-service
+Task:          DEVOPS-2026-05-14-001
+Predicted:     OOMKill within 2h of deployment
+Confidence:    82%
+Fix suggested: Increase memory limit to 768Mi
+Risk reduced:  82% → 19%
+────────────────────────────────────────
+  [ APPROVE ]          [ REJECT ]</div>
+
+    <table class="tbl" style="margin-top:5mm">
+      <thead><tr><th>Response</th><th>System Action</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag g">APPROVE</span></td><td>Remediation branch created, config committed, AI PR opened, task marked <em>In Progress</em> in Sheets</td></tr>
+        <tr><td><span class="tag r">REJECT</span></td><td>Rejection logged to audit trail, original deployment continues, task remains <em>In Progress</em></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>13</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 14 — Layers 7 & 8 -->
+<section class="page" data-screen-label="14 PR and GitOps">
+  <header class="ph">
+    <div class="brand"><span class="dot orange"></span><span class="t">2.3 — Layers 7 &amp; 8: Remediation PR &amp; GitOps</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Remediation PR &amp; GitOps Deployment</h1>
+    <p class="lede">On approval, Claude authors a traceable remediation PR with full evidence — then ArgoCD delivers the change to Kubernetes and marks the originating standup task as Done.</p>
+
+    <h2 class="t">AI-Authored PR Structure (Layer 7)</h2>
+    <div class="code light">Branch:  claude/prevent-oom-DEVOPS-2026-05-14-001
+Title:   [AI Remediation] Prevent Predicted OOMKill — DEVOPS-001
+
+## Predicted Risk
+Service: checkout-service · Risk: HIGH (82% confidence)
+Prediction: OOMKill within 2h of planned deployment
+
+## Standup Traceability
+- Originating task: `DEVOPS-2026-05-14-001` ✓ linked
+- Engineer: John · Standup date: 2026-05-14
+
+## Configuration Change
+- resources.limits.memory: 512Mi → 768Mi
+
+## Evidence
+- Peak memory (48h): 666Mi (exceeds proposed 512Mi by 23%)
+- Restart events (48h): 4 (pattern matches prior OOMKill)
+
+## Standup Task Checklist
+- [x] `DEVOPS-001` Reduce memory usage — *John* ✓ addressed by this PR</div>
+
+    <h2 class="t">GitOps Deployment Chain (Layer 8)</h2>
+    <div class="phase-strip" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-top:3mm">
+      <div class="ps active"><span class="pn">1</span><span class="pl">PR Merge</span></div>
+      <div class="ps"><span class="pn">2</span><span class="pl">GH Actions</span></div>
+      <div class="ps"><span class="pn">3</span><span class="pl">ArgoCD Sync</span></div>
+      <div class="ps"><span class="pn">4</span><span class="pl">K8s Rollout</span></div>
+      <div class="ps"><span class="pn">5</span><span class="pl">Task → Done</span></div>
+    </div>
+
+    <div class="callout success" style="margin-top:5mm">
+      <div class="ico">✓</div>
+      <div>After successful Kubernetes rollout, the originating standup task is automatically updated to <strong>Done</strong> in Microsoft Excel and a Teams notification is sent to the department channel with the PR link and deployment summary.</div>
+    </div>
+
+    <div class="callout info">
+      <div class="ico">i</div>
+      <div>PreMortem <strong>never</strong> bypasses PR review, the approval chain, or the GitOps workflow. Even approved remediations go through full code review before ArgoCD acts.</div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>14</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 15 — PART 03 OPENER -->
+<section class="page part-opener po-dark" data-screen-label="15 Config Opener">
+  <div class="accent-bar"></div>
+  <div class="po-body">
+    <div class="num">03</div>
+    <h1>Configuration &amp; Operations</h1>
+    <p class="desc">Everything needed to deploy, configure, and maintain the PreMortem + StandupSync platform — environment variables, module map, and operational procedures for Day 2 and beyond.</p>
+    <div class="po-pillars">
+      <div class="pillar">
+        <div class="pi" style="background:var(--primary-tint)">⚙️</div>
+        <h4>Configure</h4>
+        <p>Twelve environment variables, one service account key, one Sheets workbook ID</p>
+      </div>
+      <div class="pillar">
+        <div class="pi" style="background:var(--primary-tint)">📦</div>
+        <h4>Deploy</h4>
+        <p>FastAPI backend + GitHub Actions workflow + Microsoft Excel setup — three steps to production</p>
+      </div>
+      <div class="pillar">
+        <div class="pi" style="background:var(--primary-tint)">📈</div>
+        <h4>Operate</h4>
+        <p>SQLite audit log, Prometheus metrics, Teams notifications for every governance event</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 16 — Prerequisites & Env Vars -->
+<section class="page" data-screen-label="16 Prerequisites">
+  <header class="ph">
+    <div class="brand"><span class="dot dark"></span><span class="t">3.1 — Prerequisites &amp; Environment Variables</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Prerequisites &amp; Environment Variables</h1>
+
+    <h2 class="t">Prerequisites</h2>
+    <table class="tbl">
+      <thead><tr><th style="width:30%">Requirement</th><th>Details</th><th style="width:22%">Where to obtain</th></tr></thead>
+      <tbody>
+        <tr><td>Microsoft Azure App</td><td>App registration with <code>OnlineMeetings.Read</code> + <code>CallRecords.Read.All</code> Graph permissions</td><td>Azure Portal → App Registrations</td></tr>
+        <tr><td>Google Service Account</td><td>JSON key with <code>spreadsheets</code> scope; share the workbook with the service account email</td><td>GCP Console → IAM &amp; Admin</td></tr>
+        <tr><td>GitHub Token</td><td>Classic PAT with <code>repo</code> + <code>pull_requests:write</code> scopes</td><td>GitHub → Developer Settings</td></tr>
+        <tr><td>Anthropic API Key</td><td>Access to <code>claude-sonnet-4-6</code> (default) or <code>claude-opus-4-7</code></td><td>console.anthropic.com</td></tr>
+        <tr><td>Teams Webhook</td><td>Incoming webhook URL for each department channel</td><td>Teams → Channel → Connectors</td></tr>
+        <tr><td>Python ≥ 3.11</td><td>FastAPI, requests, anthropic, httpx, pydantic v2</td><td><code>pip install -r requirements.txt</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="t">Environment Variables</h2>
+    <div class="code light"><span class="c"># Microsoft Graph API</span>
+GRAPH_TENANT_ID=<span class="s">your-tenant-id</span>
+GRAPH_CLIENT_ID=<span class="s">your-app-client-id</span>
+GRAPH_CLIENT_SECRET=<span class="s">your-app-client-secret</span>
+TEAMS_MEETING_IDS=<span class="s">{"devops":"AAMkAG...","security":"AAMkAH..."}</span>
+
+<span class="c"># Microsoft Excel (SharePoint / OneDrive)</span>
+EXCEL_WORKBOOK_ID=<span class="s">1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms</span>   <span class="c"># SharePoint/OneDrive item ID</span>
+EXCEL_DRIVE_ID=<span class="s">b!YourSharePointDriveId</span>                              <span class="c"># SharePoint drive ID</span>
+
+<span class="c"># GitHub</span>
+GITHUB_TOKEN=<span class="s">ghp_xxxxxxxxxxxxxxxxxxxx</span>
+GITHUB_REPO=<span class="s">your-org/your-repo</span>
+
+<span class="c"># Claude AI</span>
+ANTHROPIC_API_KEY=<span class="s">sk-ant-api03-...</span>
+CLAUDE_MODEL=<span class="s">claude-sonnet-4-6</span>
+
+<span class="c"># Teams notifications</span>
+TEAMS_WEBHOOK_URL=<span class="s">https://dewa.webhook.office.com/webhookb2/...</span></div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>16</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 17 — Module Reference -->
+<section class="page" data-screen-label="17 Module Reference">
+  <header class="ph">
+    <div class="brand"><span class="dot dark"></span><span class="t">3.2 — Module Reference &amp; File Structure</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Module Reference &amp; File Structure</h1>
+
+    <div class="grid-2" style="gap:12px">
+      <div>
+        <h2 class="t" style="margin-top:0">File Structure</h2>
+        <div class="file-tree"><span class="f">backend/</span>
+├── <span class="f">main.py</span>              <span class="c">FastAPI entry</span>
+├── <span class="f">models/</span>
+│   ├── <span class="f">task.py</span>          <span class="c">Pydantic schemas</span>
+│   └── <span class="f">departments.py</span>   <span class="c">10 dept schemas</span>
+├── <span class="f">storage/</span>
+│   ├── <span class="f">gsheets_sync.py</span>  <span class="c">Upsert to Sheets</span>
+│   └── <span class="f">audit_log.py</span>     <span class="c">SQLite event log</span>
+├── <span class="f">ai/</span>
+│   ├── <span class="f">standup_extractor.py</span>
+│   ├── <span class="f">pr_checklist_builder.py</span>
+│   ├── <span class="f">pr_correlator.py</span>
+│   ├── <span class="f">risk_predictor.py</span>
+│   ├── <span class="f">remediator.py</span>
+│   └── <span class="f">pr_generator.py</span>
+├── <span class="f">integrations/</span>
+│   ├── <span class="f">graph_client.py</span>
+│   ├── <span class="f">teams_card.py</span>
+│   ├── <span class="f">teams_sender.py</span>
+│   └── <span class="f">github_client.py</span>
+└── <span class="f">routes/</span>
+    ├── <span class="f">standup.py</span>
+    ├── <span class="f">pr_checklist.py</span>
+    ├── <span class="f">pr_webhook.py</span>
+    └── <span class="f">teams_webhook.py</span>
+<span class="b">.github/workflows/</span>
+└── <span class="b">standup-checklist.yml</span></div>
+      </div>
+      <div>
+        <h2 class="t" style="margin-top:0">Module Responsibilities</h2>
+        <table class="tbl">
+          <thead><tr><th>Module</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td><code>standup_extractor</code></td><td>Transcript → dept JSON tasks</td></tr>
+            <tr><td><code>pr_checklist_builder</code></td><td>Pending tasks → PR markdown checklist</td></tr>
+            <tr><td><code>pr_correlator</code></td><td>PR diff ↔ tasks → MATCH/PARTIAL/UNKNOWN</td></tr>
+            <tr><td><code>risk_predictor</code></td><td>Infra diff + metrics → risk JSON</td></tr>
+            <tr><td><code>remediator</code></td><td>Risk → safer config + rollback plan</td></tr>
+            <tr><td><code>pr_generator</code></td><td>Evidence → AI PR body markdown</td></tr>
+            <tr><td><code>gsheets_sync</code></td><td>Upsert tasks by dept tab</td></tr>
+            <tr><td><code>audit_log</code></td><td>Every event → SQLite row</td></tr>
+            <tr><td><code>graph_client</code></td><td>Graph API → raw transcript</td></tr>
+            <tr><td><code>github_client</code></td><td>Create branch + PR + update body</td></tr>
+            <tr><td><code>teams_card</code></td><td>Build Adaptive Card JSON</td></tr>
+          </tbody>
+        </table>
+
+        <div class="spec-band">
+          <span class="sb-l">Runtime</span><span class="sb-v">FastAPI 0.115</span>
+          <span class="sb-sep">·</span>
+          <span class="sb-l">Python</span><span class="sb-v">3.11+</span>
+          <span class="sb-sep">·</span>
+          <span class="sb-l">Claude</span><span class="sb-v">Sonnet 4.6</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>17</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 18 — Cheat Sheet -->
+<section class="page" data-screen-label="18 Cheat Sheet">
+  <header class="ph">
+    <div class="brand"><span class="dot"></span><span class="t">Skill Command Cheat Sheet</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Skill Command Cheat Sheet</h1>
+    <p class="lede muted">Invoke with <code>/premortem &lt;command&gt;</code> from any Claude Code session within the project.</p>
+
+    <div class="cheat">
+      <div class="card">
+        <h4><span class="ci" style="background:#DAEBF6">📡</span>StandupSync — Ingest</h4>
+        <ul>
+          <li><code>standup finance [transcript]</code> — extract Finance tasks from raw text</li>
+          <li><code>standup security [transcript]</code> — extract Security tasks with severity</li>
+          <li><code>standup sap [transcript]</code> — extract SAP tasks with module + t-code</li>
+          <li><code>standup devops [transcript]</code> — extract DevOps tasks with risk category</li>
+          <li><code>standup testing [transcript]</code> — extract QA tasks with P0–P3 priority</li>
+          <li><code>standup ai-adoption [transcript]</code> — extract adoption tasks with KPI</li>
+          <li><code>departments</code> — list all 10 dept schemas at once</li>
+          <li><code>department schema [dept]</code> — get exact columns for a department</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4><span class="ci" style="background:#DAEBF6">📋</span>StandupSync — Govern</h4>
+        <ul>
+          <li><code>checklist devops 2026-05-14</code> — PR checklist for DevOps tasks that date</li>
+          <li><code>checklist security 2026-05-14</code> — PR checklist for Security tasks</li>
+          <li><code>sheets sync sap</code> — generate <code>gsheets_sync.py</code> for SAP tab</li>
+          <li><code>sheets sync finance</code> — generate Sheets sync for Finance</li>
+          <li><code>generate pr_checklist_builder</code> — full module code</li>
+          <li><code>generate gsheets_sync</code> — full Sheets upsert module</li>
+          <li><code>generate checklist action</code> — GitHub Actions YAML</li>
+          <li><code>generate standup_extractor</code> — full extraction module</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4><span class="ci">🛡️</span>PreMortem — Risk &amp; Build</h4>
+        <ul>
+          <li><code>explain Layer 4</code> — risk intelligence scope</li>
+          <li><code>explain Layer 6</code> — Teams approval workflow</li>
+          <li><code>risk categories</code> — all 5 DevOps risk values</li>
+          <li><code>write prompt for risk_predictor</code> — Claude system prompt + schema</li>
+          <li><code>write prompt for standup extractor</code> — extraction prompt</li>
+          <li><code>generate risk_predictor</code> — full risk module</li>
+          <li><code>generate remediator</code> — full remediation module</li>
+          <li><code>build order</code> — 4-phase build sequence</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 class="t">Build Sequence</h2>
+    <div class="phase-strip" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      <div class="ps active"><span class="pn">Phase 1</span><span class="pl">Foundation</span></div>
+      <div class="ps"><span class="pn">Phase 2</span><span class="pl">StandupSync</span></div>
+      <div class="ps"><span class="pn">Phase 3</span><span class="pl">AI Core</span></div>
+      <div class="ps"><span class="pn">Phase 4</span><span class="pl">Approval &amp; GitOps</span></div>
+    </div>
+
+    <div class="item-rows" style="margin-top:4mm">
+      <div class="ir"><span class="ik">Phase 1 — Foundation</span><span class="iv">FastAPI app, Pydantic models, <code>departments.py</code>, <code>audit_log.py</code>, env config</span></div>
+      <div class="ir"><span class="ik">Phase 2 — StandupSync</span><span class="iv">Graph client, standup extractor, gsheets_sync, PR checklist builder, GH Actions YAML</span></div>
+      <div class="ir"><span class="ik">Phase 3 — AI Core</span><span class="iv">PR correlator, risk predictor, remediator, PR generator — all Claude API modules</span></div>
+      <div class="ir"><span class="ik">Phase 4 — Governance</span><span class="iv">Teams card builder, approval webhook, GitHub PR creator, ArgoCD integration, full E2E test</span></div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>18</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 19 — Troubleshooting -->
+<section class="page" data-screen-label="19 Troubleshooting">
+  <header class="ph">
+    <div class="brand"><span class="dot"></span><span class="t">Troubleshooting</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Troubleshooting</h1>
+    <p class="lede muted">Common failure modes, their root causes, and recommended remedies.</p>
+
+    <table class="tbl">
+      <thead><tr><th style="width:28%">Symptom</th><th style="width:28%">Root Cause</th><th>Remedy</th></tr></thead>
+      <tbody>
+        <tr><td>Graph API returns 403 on transcript fetch</td><td>Missing <code>CallRecords.Read.All</code> admin consent on Azure app</td><td>Azure Portal → API Permissions → Grant admin consent for tenant</td></tr>
+        <tr><td>Transcript returns empty content</td><td>Meeting transcript not enabled for that Teams channel type</td><td>Enable transcription in Teams Admin Center → Meeting Policies</td></tr>
+        <tr><td>Excel workbook returns 404 / NotFound</td><td>Service account not granted access to the SharePoint/OneDrive file</td><td>Share the Excel workbook with the service account in SharePoint permissions</td></tr>
+        <tr><td>Department worksheet tab not found in Excel</td><td>Tab was renamed or not created for that department</td><td>Run <code>/premortem generate excel_sync [dept]</code> and create the worksheet tab via MS Graph <code>POST /worksheets</code></td></tr>
+        <tr><td>PR checklist not injected into PR body</td><td><code>GITHUB_TOKEN</code> lacks <code>pull_requests:write</code> scope</td><td>Regenerate PAT with correct scopes; update repo secret</td></tr>
+        <tr><td>GitHub Actions gate not running</td><td><code>standup-checklist.yml</code> not committed to <code>.github/workflows/</code></td><td>Generate via <code>/premortem generate checklist action</code> and push to main</td></tr>
+        <tr><td>Claude returns malformed JSON</td><td>Transcript too long (>200k tokens) or contains encoding artifacts</td><td>Split transcript by speaker turns; add <code>response_format={"type":"json_object"}</code></td></tr>
+        <tr><td>Teams card not received</td><td>Incoming webhook connector expired or channel deleted</td><td>Recreate connector; update <code>TEAMS_WEBHOOK_URL</code> env var</td></tr>
+        <tr><td>Risk predictor returns LOW for obvious HIGH risk</td><td>Historical incident data missing from audit log</td><td>Seed <code>audit_log.db</code> with past incidents; confirm Prometheus scrape target is reachable</td></tr>
+        <tr><td>ArgoCD not syncing after PR merge</td><td>ArgoCD app not pointed at the remediation branch path</td><td>Verify ArgoCD app <code>targetRevision</code> matches the base branch and the manifest path is correct</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout info" style="margin-top:4mm">
+      <div class="ico">i</div>
+      <div>All governance events — transcript fetches, upserts, PR injections, approvals, rejections, deployments — are written to <code>audit_log.db</code>. Run <code>SELECT * FROM events ORDER BY ts DESC LIMIT 50;</code> to diagnose unexpected behaviour.</div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>19</b> / 20</div></footer>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════ PAGE 20 — Sign-off -->
+<section class="page" data-screen-label="20 Sign-off">
+  <header class="ph">
+    <div class="brand"><span class="dot"></span><span class="t">Document Sign-off</span></div>
+    <div class="meta">v1.0 · May 2026</div>
+  </header>
+  <div class="pbody">
+    <h1 class="t">Document Sign-off</h1>
+
+    <div class="spec-band">
+      <span class="sb-l">Document</span><span class="sb-v">PreMortem + StandupSync — User Manual</span>
+      <span class="sb-sep">·</span>
+      <span class="sb-l">Version</span><span class="sb-v">1.0</span>
+      <span class="sb-sep">·</span>
+      <span class="sb-l">Released</span><span class="sb-v">May 2026</span>
+      <span class="sb-sep">·</span>
+      <span class="sb-l">Classification</span><span class="sb-v">Internal Use Only</span>
+    </div>
+
+    <h2 class="t">Approvers</h2>
+    <table class="tbl">
+      <thead><tr><th>Name</th><th>Role</th><th>Signature</th><th>Date</th></tr></thead>
+      <tbody>
+        <tr><td>Dhanush M C</td><td>Skill Owner &amp; Lead Engineer</td><td>_______________</td><td>2026-05-14</td></tr>
+        <tr><td>—</td><td>Engineering Lead</td><td>_______________</td><td>YYYY-MM-DD</td></tr>
+        <tr><td>—</td><td>AI Governance Lead</td><td>_______________</td><td>YYYY-MM-DD</td></tr>
+        <tr><td>—</td><td>Department Head</td><td>_______________</td><td>YYYY-MM-DD</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="t">Revision History</h2>
+    <table class="tbl">
+      <thead><tr><th>Version</th><th>Date</th><th>Author</th><th>Summary of Changes</th></tr></thead>
+      <tbody>
+        <tr><td>1.0</td><td>2026-05-14</td><td>Dhanush M C</td><td>Initial release — 8-layer architecture, 10 department schemas, Microsoft Excel integration, PR Checklist Gate, full PreMortem risk &amp; remediation pipeline</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="t">Skill Invocation Quick Reference</h2>
+    <div class="item-rows">
+      <div class="ir"><span class="ik">Skill command</span><span class="iv"><code>/premortem &lt;request&gt;</code> in any Claude Code session within this project</span></div>
+      <div class="ir"><span class="ik">Skill file</span><span class="iv"><code>.claude/commands/premortem.md</code> — project-scoped</span></div>
+      <div class="ir"><span class="ik">Global install</span><span class="iv">Copy to <code>~/.claude/commands/premortem.md</code> to make available across all projects</span></div>
+      <div class="ir"><span class="ik">AI model</span><span class="iv"><code>claude-sonnet-4-6</code> (default) · <code>claude-opus-4-7</code> for complex multi-step generation</span></div>
+    </div>
+
+    <div class="callout success" style="margin-top:5mm">
+      <div class="ico">✓</div>
+      <div>This manual, the inline skill file (<code>.claude/commands/premortem.md</code>), and the print sibling (<code>PreMortem StandupSync - User Manual-print.html</code>) form the complete deliverable for the DEWA ADK Hackathon submission.</div>
+    </div>
+  </div>
+  <footer class="pf"><div>Internal Use Only</div><div class="pn">Page <b>20</b> / 20</div></footer>
+</section>
+
+</body>
+</html>
