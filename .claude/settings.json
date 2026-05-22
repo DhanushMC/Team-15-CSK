@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "Write-Output '{\"systemMessage\": \"PreMortem + StandupSync loaded. Try: /premortem departments | /premortem build order | /premortem generate [module]\"}'",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$json = [Console]::In.ReadToEnd() | ConvertFrom-Json; $f = $json.tool_input.file_path; if ($f) { $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'); $line = $ts + ' | ' + $f; Add-Content 'd:\\Hackathon\\.claude\\skill-activity.log' $line }",
+            "shell": "powershell",
+            "async": true,
+            "statusMessage": "Logging file activity..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$json = [Console]::In.ReadToEnd() | ConvertFrom-Json; $f = $json.tool_input.file_path; if ($f -match '\\.py$|\\.yml$|\\.yaml$|\\.md$') { $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('PATH','User'); git -C 'd:\\Hackathon' add $f 2>$null }",
+            "shell": "powershell",
+            "async": true,
+            "statusMessage": "Auto-staging generated file..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "Write-Output '{\"systemMessage\": \"PreMortem + StandupSync ready. Run /premortem [command] to continue.\"}'",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
+}
