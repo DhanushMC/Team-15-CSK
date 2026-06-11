@@ -1,0 +1,243 @@
+# =============================================================================
+# Workflow : PreMortem | PR Analysis & Task Correlation
+# Owner    : DEWA DevOps / AI Platform Team  |  dhanush.mc@dewa.gov.ae
+# Purpose  : When a PR is opened or updated, send the diff + changed files to
+#            the PreMortem backend (/analyze-pr).  Claude correlates PR changes
+#            against standup tasks and returns MATCH / PARTIAL / UNKNOWN.
+#            Result is posted as a PR comment and a Teams card is sent.
+#
+# Hooks    : pull_request - opened, synchronize, reopened, ready_for_review
+#            workflow_dispatch - manual analysis trigger (ops / debug)
+# =============================================================================
+
+name: "PreMortem | PR Analysis & Task Correlation"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to re-analyse"
+        required: true
+        type: string
+
+concurrency:
+  group: premortem-analyze-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  analyze:
+    name: "Correlate PR with Standup Tasks"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ── Step 1: Checkout to get the diff ────────────────────────────────────
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── Step 2: Extract changed files and a lightweight diff summary ─────────
+      - name: "Extract PR diff metadata"
+        id: diff
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          HEAD="${{ github.event.pull_request.head.sha || 'HEAD' }}"
+
+          changed_files=$(git diff --name-only "$BASE" "$HEAD" | head -50 | jq -Rs '.')
+          diff_stat=$(git diff --stat "$BASE" "$HEAD" | tail -1)
+          diff_patch=$(git diff --unified=3 "$BASE" "$HEAD" -- '*.py' '*.yaml' '*.yml' '*.tf' '*.json' | head -500)
+
+          echo "changed_files=$changed_files" >> "$GITHUB_OUTPUT"
+          echo "diff_stat=$diff_stat"          >> "$GITHUB_OUTPUT"
+
+          # Write patch to file to avoid shell escaping issues
+          echo "$diff_patch" > /tmp/diff_patch.txt
+          echo "Extracted diff for $(echo "$changed_files" | jq '. | split("\n") | length') files."
+
+      # ── Step 3: Call PreMortem /analyze-pr — Claude does the correlation ─────
+      - name: "Send PR to PreMortem for analysis"
+        id: analysis
+        env:
+          PREMORTEM_URL: ${{ secrets.PREMORTEM_BACKEND_URL }}
+          PREMORTEM_TOKEN: ${{ secrets.PREMORTEM_API_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          PR_TITLE: ${{ github.event.pull_request.title || 'Manual dispatch' }}
+          REPO: ${{ github.repository }}
+          DEPARTMENT: ${{ vars.PREMORTEM_DEPARTMENT || 'devops' }}
+          BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+        run: |
+          diff_patch=$(cat /tmp/diff_patch.txt)
+
+          payload=$(jq -n \
+            --arg  repo      "$REPO" \
+            --argjson pr_num "$PR_NUMBER" \
+            --arg  title     "$PR_TITLE" \
+            --arg  branch    "$BRANCH" \
+            --arg  dept      "$DEPARTMENT" \
+            --arg  files     "${{ steps.diff.outputs.changed_files }}" \
+            --arg  patch     "$diff_patch" \
+            --arg  stat      "${{ steps.diff.outputs.diff_stat }}" \
+            '{
+              repo: $repo,
+              pr_number: $pr_num,
+              pr_title: $title,
+              branch: $branch,
+              department: $dept,
+              changed_files: ($files | fromjson),
+              diff_patch: $patch,
+              diff_stat: $stat
+            }')
+
+          for attempt in 1 2 3; do
+            status=$(curl -s -o /tmp/analysis.json -w "%{http_code}" \
+              -X POST "${PREMORTEM_URL}/analyze-pr" \
+              -H "Authorization: Bearer ${PREMORTEM_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" --max-time 60)
+
+            if [[ "$status" =~ ^2 ]]; then
+              echo "Analysis succeeded (HTTP $status)."
+              break
+            fi
+
+            if [ $attempt -eq 3 ]; then
+              echo "CORRELATION=UNKNOWN" >> "$GITHUB_OUTPUT"
+              echo "SUMMARY=Backend unreachable after 3 attempts (HTTP $status). Manual review required." >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "::warning::Backend returned $status on attempt $attempt — retrying..."
+            sleep $((attempt * 10))
+          done
+
+          correlation=$(jq -r '.correlation // "UNKNOWN"'    /tmp/analysis.json)
+          summary=$(jq -r '.summary     // "No summary returned."' /tmp/analysis.json)
+          risk=$(jq -r '.risk_level  // "UNKNOWN"'          /tmp/analysis.json)
+          tasks=$(jq -r '.matched_tasks | length // 0'      /tmp/analysis.json 2>/dev/null || echo "0")
+
+          echo "CORRELATION=$correlation" >> "$GITHUB_OUTPUT"
+          echo "SUMMARY=$summary"         >> "$GITHUB_OUTPUT"
+          echo "RISK=$risk"               >> "$GITHUB_OUTPUT"
+          echo "TASKS=$tasks"             >> "$GITHUB_OUTPUT"
+
+      # ── Step 4: Post correlation result as PR comment ───────────────────────
+      - name: "Post correlation result comment"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request?.number
+              ?? parseInt('${{ inputs.pr_number }}', 10);
+            const correlation = '${{ steps.analysis.outputs.CORRELATION }}';
+            const summary     = '${{ steps.analysis.outputs.SUMMARY }}';
+            const risk        = '${{ steps.analysis.outputs.RISK }}';
+            const tasks       = '${{ steps.analysis.outputs.TASKS }}';
+
+            const icons = { MATCH: '✅', PARTIAL: '⚠️', UNKNOWN: '❓' };
+            const icon  = icons[correlation] || '❓';
+
+            const MARKER = '<!-- premortem-pr-analyze -->';
+            const message = [
+              MARKER,
+              icon + ' **PreMortem PR Analysis — ' + correlation + '**',
+              '',
+              '| Field | Value |',
+              '|---|---|',
+              '| Correlation | ' + correlation + ' |',
+              '| Risk Level | ' + risk + ' |',
+              '| Matched Tasks | ' + tasks + ' |',
+              '',
+              '**Summary:** ' + summary,
+              '',
+              correlation === 'PARTIAL'
+                ? '> ⚠️ This PR contains changes not covered by any standup task. A reviewer has been notified via Teams.'
+                : correlation === 'UNKNOWN'
+                ? '> ❓ No standup task covers these changes. Please link or create a task in Microsoft Excel.'
+                : '> ✅ All changes align with standup tasks. Full traceability confirmed.',
+              '',
+              '> _PreMortem + StandupSync · AI Suggests → Human Approves → GitOps Deploys_'
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber
+            });
+            const existing = comments.find(c => c.user.type === 'Bot' && c.body.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: existing.id, body: message
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: prNumber, body: message
+              });
+            }
+
+            await core.summary
+              .addHeading('PreMortem PR Analysis', 2)
+              .addTable([
+                [{data: 'PR', header: true}, {data: 'Correlation', header: true}, {data: 'Risk', header: true}, {data: 'Matched Tasks', header: true}],
+                ['#' + prNumber, correlation, risk, tasks]
+              ])
+              .write();
+
+            if (correlation === 'PARTIAL' || correlation === 'UNKNOWN') {
+              core.warning('PR correlation: ' + correlation + ' — reviewer notification sent to Teams.');
+            }
+
+      # ── Step 5: Notify Teams on PARTIAL or UNKNOWN (human awareness hook) ───
+      - name: "Send Teams alert for PARTIAL or UNKNOWN correlation"
+        if: steps.analysis.outputs.CORRELATION == 'PARTIAL' || steps.analysis.outputs.CORRELATION == 'UNKNOWN'
+        env:
+          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          CORRELATION: ${{ steps.analysis.outputs.CORRELATION }}
+          SUMMARY: ${{ steps.analysis.outputs.SUMMARY }}
+          RISK: ${{ steps.analysis.outputs.RISK }}
+          REPO: ${{ github.repository }}
+        run: |
+          card=$(jq -n \
+            --arg title  "PreMortem Alert: $CORRELATION PR — #$PR_NUMBER" \
+            --arg repo   "$REPO" \
+            --arg pr     "$PR_TITLE" \
+            --arg url    "$PR_URL" \
+            --arg corr   "$CORRELATION" \
+            --arg risk   "$RISK" \
+            --arg summ   "$SUMMARY" \
+            '{
+              "@type": "MessageCard",
+              "@context": "http://schema.org/extensions",
+              "themeColor": "FF8C00",
+              "summary": $title,
+              "sections": [{
+                "activityTitle": $title,
+                "activitySubtitle": ("Repo: " + $repo),
+                "facts": [
+                  {"name": "PR",          "value": $pr},
+                  {"name": "Correlation", "value": $corr},
+                  {"name": "Risk Level",  "value": $risk},
+                  {"name": "Summary",     "value": $summ}
+                ]
+              }],
+              "potentialAction": [{
+                "@type": "OpenUri",
+                "name": "View PR",
+                "targets": [{"os": "default", "uri": $url}]
+              }]
+            }')
+
+          curl -s -X POST "$TEAMS_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$card"

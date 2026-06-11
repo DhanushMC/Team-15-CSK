@@ -1,13 +1,28 @@
 ---
-command: /premortem
 skill: premortem-standupsync
 version: 1.2.0
-canonical: .claude/skills/premortem-standupsync/SKILL.md
+description: >
+  AI-Powered Predictive DevOps Governance Platform.
+  Bridges daily standup intent to safe production deployments
+  across 10 DEWA departments via Microsoft Teams, Excel, GitHub, and ArgoCD.
+author: DEWA DevOps / AI Platform Team
+email: dhanush.mc@dewa.gov.ae
+command: /premortem
+provides:
+  - standup-intelligence
+  - pr-checklist-gate
+  - risk-predictor
+  - teams-approval-workflow
+  - excel-task-registry
+requires:
+  - claude-code >= 1.0.0
+  - microsoft-graph-api
+  - github-actions >= 3.0.0
+compatible_parents:
+  - dewa-devops-platform
+  - any-gitops-plugin
+changelog: ../../CHANGELOG.md
 ---
-
-<!-- Command entry layer — routes $ARGUMENTS to the PreMortem + StandupSync skill.
-     Full architecture lives in the canonical SKILL.md above.
-     Edit the canonical SKILL.md; this file is the Claude Code invocation wrapper. -->
 
 You are an expert architect and engineer for **PreMortem + StandupSync** — a unified AI-Powered Predictive DevOps Governance Platform with cross-department daily standup intelligence, Microsoft Excel task tracking, and PR checklist enforcement. The full unified architecture below is your single source of truth.
 
@@ -100,6 +115,12 @@ Safe production release
 ## Architecture Layers
 ### Layer 1 — Standup Intelligence (Multi-Department)
 **Objective:** Capture intent from every department's daily standup BEFORE any work is implemented.
+**Trigger:** Scheduled job runs after each team's standup (configurable per department).
+**Flow:**
+1. Microsoft Graph API fetches the Teams meeting transcript for the correct meeting ID
+2. Transcript sent to Claude with the department's system prompt
+3. Claude returns structured tasks in department-specific JSON schema
+4. Tasks written to the department's Microsoft Excel worksheet via `excel_sync.py` (MS Graph API)
 **Supported Departments:**
 | Department | Sheet Tab | Task Schema |
 |---|---|---|
@@ -115,60 +136,98 @@ Safe production release
 | DevOps (default) | `devops` | engineer, service, task, risk_category, environment |
 ---
 ### Layer 2 — Microsoft Excel Task Registry
+**Objective:** Single source of truth for all department tasks — live, searchable, audit-ready.
+**Sheet Structure:**
+- One Microsoft Excel workbook per department (or one workbook with one tab per department)
+- Columns: `task_id | owner/engineer | task | status | standup_date | pr_linked | pr_url | completed_date`
+- Additional department-specific columns per schema above
 - Status flow: `Pending → In Progress → Blocked → Done`
-- Auth: MS Graph API with Azure AD (`EXCEL_WORKBOOK_ID` + `EXCEL_DRIVE_ID`)
+**Sync Rules:**
+- `standup_date` match + `task_id` match → **upsert** (update existing row)
+- New `task_id` → **insert** new row
+- Status never regressed automatically (only humans can revert Done → In Progress)
+- `pr_linked` flag set to `TRUE` when a PR references the task ID
 ---
 ### Layer 3 — PR Checklist Gate
-- PR body auto-populated with pending standup tasks
-- GitHub Actions posts visibility comment — merge NEVER blocked
+**Objective:** Every GitHub PR receives a visibility checklist of pending standup tasks. Engineers can always merge — the goal is awareness and traceability, not blocking.
 ---
 ### Layer 4 — Infrastructure Risk Intelligence
+**Objective:** Predict production risks BEFORE deployment (DevOps / AI Deployment / Security departments).
+
+**Claude output format:**
 ```json
-{"risk": "HIGH", "prediction": "OOMKill likely within 2 hours", "confidence": 82}
+{
+  "risk": "HIGH",
+  "prediction": "OOMKill likely within 2 hours after deployment",
+  "confidence": 82,
+  "reasoning": [
+    "Current memory usage exceeds proposed limit by 23%",
+    "Historical incident similarity score: 0.87"
+  ]
+}
 ```
 ---
 ### Layer 5 — AI Remediation Engine
-Claude receives risk + original config → outputs safer config diff + rollback strategy
+**Objective:** Generate safer infrastructure configurations automatically.
+- Claude receives risk analysis + original config
+- Outputs: config diff, rollback strategy, confidence score, operational explanation, estimated risk reduction
 ---
 ### Layer 6 — Microsoft Teams Approval Workflow
-**AI Suggests → Human Approves → GitOps Deploys**
+**Objective:** Human governance before any AI-generated change is deployed.
+**Core safety principle: AI NEVER deploys directly.**
+```
+AI Suggests → Human Approves → GitOps Deploys
+```
+- **Approved:** Creates remediation branch, commits fix, opens AI-generated PR, marks task Done in Excel
+- **Rejected:** Logs rejection, stores audit trail, continues original deployment
 ---
 ### Layer 7 — AI Remediation PR Generation
-Branch: `claude/prevent-<risk-type>-<task-id> → main`
+- Branch: `claude/prevent-<risk-type>-<task-id> → main`
+- PR title: `[AI Remediation] Prevent Predicted OOM Risk — DEVOPS-2024-05-14-001`
 ---
 ### Layer 8 — GitOps Deployment
-`PR Merge → GitHub Actions → ArgoCD Sync → Kubernetes → Task Done in Excel`
+```
+PR Merge → GitHub Actions → ArgoCD Sync → Kubernetes Deployment → Task marked Done in Excel
+```
+PreMortem NEVER bypasses PR review, approval chain, or GitOps workflow.
 ---
 ## Technical Stack
+
 | Component | Technology |
 |---|---|
 | AI Engine | Claude API (`claude-sonnet-4-6`) |
-| Meeting Integration | Microsoft Graph API |
+| Meeting Integration | Microsoft Graph API (Teams transcripts) |
 | Task Registry | Microsoft Excel (MS Graph API) |
 | Source Control | GitHub + GitHub Actions |
-| GitOps | ArgoCD / Kubernetes |
+| GitOps | ArgoCD |
+| Infrastructure | Kubernetes |
 | Backend | FastAPI (Python) |
+| Audit Storage | SQLite (`audit_log.db`) |
 ---
 ## Key Files & Modules
 | Module | Path | Responsibility |
 |---|---|---|
 | Main app | `backend/main.py` | FastAPI entry point |
-| Department registry | `backend/models/departments.py` | All 10 department schemas |
-| Excel sync | `backend/storage/excel_sync.py` | Upsert tasks via MS Graph API |
-| Graph client | `backend/integrations/graph_client.py` | Fetch Teams transcripts |
-| Standup extractor | `backend/ai/standup_extractor.py` | Transcript → structured tasks |
-| PR checklist builder | `backend/ai/pr_checklist_builder.py` | Pending tasks → PR checklist |
-| PR correlator | `backend/ai/pr_correlator.py` | PR diff ↔ tasks (MATCH/PARTIAL/UNKNOWN) |
-| Risk predictor | `backend/ai/risk_predictor.py` | Infra diff → risk JSON |
-| Teams card | `backend/integrations/teams_card.py` | Adaptive Card JSON |
-| GitHub client | `backend/integrations/github_client.py` | Create branch + PR |
+| Department registry | `backend/models/departments.py` | Schema definitions for all 10 departments |
+| Microsoft Excel sync | `backend/storage/excel_sync.py` | Upsert tasks to Microsoft Excel (MS Graph API) |
+| Graph client | `backend/integrations/graph_client.py` | Fetch Teams meeting transcripts |
+| Standup extractor | `backend/ai/standup_extractor.py` | Claude: transcript → department-structured tasks |
+| PR checklist builder | `backend/ai/pr_checklist_builder.py` | Claude: pending tasks → PR checklist markdown |
+| PR correlator | `backend/ai/pr_correlator.py` | Claude: PR diff ↔ standup tasks (MATCH/PARTIAL/UNKNOWN) |
+| Risk predictor | `backend/ai/risk_predictor.py` | Claude: infra diff → risk JSON |
+| Teams card | `backend/integrations/teams_card.py` | Build Adaptive Card JSON |
+| GitHub client | `backend/integrations/github_client.py` | Create branch + PR + update PR body |
 ---
 ## Environment Variables
 ```
-GRAPH_TENANT_ID=        GRAPH_CLIENT_ID=        GRAPH_CLIENT_SECRET=
-TEAMS_MEETING_IDS={"devops": "...", "security": "..."}
-EXCEL_WORKBOOK_ID=      EXCEL_DRIVE_ID=
-GITHUB_TOKEN=           ANTHROPIC_API_KEY=
+GRAPH_TENANT_ID=
+GRAPH_CLIENT_ID=
+GRAPH_CLIENT_SECRET=
+TEAMS_MEETING_IDS={"devops": "...", "security": "...", "finance": "..."}
+EXCEL_WORKBOOK_ID=
+EXCEL_DRIVE_ID=
+GITHUB_TOKEN=
+ANTHROPIC_API_KEY=
 CLAUDE_MODEL=claude-sonnet-4-6
 TEAMS_WEBHOOK_URL=
 ```

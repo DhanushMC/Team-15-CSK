@@ -1,0 +1,236 @@
+# =============================================================================
+# Workflow : PreMortem | Standup Sync
+# Owner    : DEWA DevOps / AI Platform Team  |  dhanush.mc@dewa.gov.ae
+# Purpose  : After each department's daily standup, fetch the Teams meeting
+#            transcript via the PreMortem backend (/standup), let Claude extract
+#            structured tasks, and sync them to Microsoft Excel.
+#            A summary card is posted to the department Teams channel.
+#
+# Hooks    : schedule         - cron per department window (configurable)
+#            workflow_dispatch - manual run: pick department + optional transcript
+#            push (main)      - always sync devops after a merge to main
+# =============================================================================
+
+name: "PreMortem | Standup Sync"
+
+on:
+  schedule:
+    # DevOps standup: Sun–Thu 09:15 GST (05:15 UTC)
+    - cron: "15 5 * * 0-4"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "infrastructure/**"
+      - "k8s/**"
+      - "helm/**"
+  workflow_dispatch:
+    inputs:
+      department:
+        description: "Department to sync"
+        required: true
+        type: choice
+        options:
+          - devops
+          - ai-deployment
+          - testing
+          - intf
+          - ai-adoption
+          - finance
+          - security
+          - data-governance
+          - sap
+          - business
+      transcript:
+        description: "Paste transcript text (leave blank to fetch from Teams)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run — extract tasks but do not write to Excel"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: premortem-standup-${{ github.event.inputs.department || 'devops' }}
+  cancel-in-progress: false  # never cancel an in-flight sync — let it finish
+
+permissions:
+  contents: read
+  actions: write   # needed to write job summaries
+
+jobs:
+  sync:
+    name: "Standup Sync — ${{ github.event.inputs.department || 'devops' }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DEPARTMENT: ${{ github.event.inputs.department || 'devops' }}
+      DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+
+    steps:
+      # ── Step 1: Determine trigger source and log context ────────────────────
+      - name: "Log sync context"
+        run: |
+          echo "Department : $DEPARTMENT"
+          echo "Trigger    : ${{ github.event_name }}"
+          echo "Dry run    : $DRY_RUN"
+          echo "Ref        : ${{ github.ref }}"
+
+      # ── Step 2: Call PreMortem /standup — fetch transcript + extract tasks ──
+      - name: "Run standup sync"
+        id: sync
+        env:
+          PREMORTEM_URL: ${{ secrets.PREMORTEM_BACKEND_URL }}
+          PREMORTEM_TOKEN: ${{ secrets.PREMORTEM_API_TOKEN }}
+          TRANSCRIPT: ${{ github.event.inputs.transcript || '' }}
+        run: |
+          payload=$(jq -n \
+            --arg dept       "$DEPARTMENT" \
+            --arg dry        "$DRY_RUN" \
+            --arg transcript "$TRANSCRIPT" \
+            '{
+              department: $dept,
+              dry_run: ($dry == "true"),
+              transcript: (if $transcript != "" then $transcript else null end)
+            }')
+
+          for attempt in 1 2 3; do
+            status=$(curl -s -o /tmp/sync_result.json -w "%{http_code}" \
+              -X POST "${PREMORTEM_URL}/standup" \
+              -H "Authorization: Bearer ${PREMORTEM_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" --max-time 120)
+
+            if [[ "$status" =~ ^2 ]]; then
+              echo "Standup sync succeeded (HTTP $status)."
+              break
+            fi
+
+            if [ $attempt -eq 3 ]; then
+              echo "::error::Standup sync failed after 3 attempts (HTTP $status). Check backend logs."
+              echo "TASKS_EXTRACTED=0" >> "$GITHUB_OUTPUT"
+              echo "TASKS_WRITTEN=0"   >> "$GITHUB_OUTPUT"
+              echo "STATUS=FAILED"     >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
+
+            echo "::warning::Backend returned $status on attempt $attempt — retrying..."
+            sleep $((attempt * 15))
+          done
+
+          extracted=$(jq '.tasks_extracted // 0'    /tmp/sync_result.json)
+          written=$(jq   '.tasks_written   // 0'    /tmp/sync_result.json)
+          sheet_url=$(jq -r '.sheet_url    // ""'   /tmp/sync_result.json)
+
+          echo "TASKS_EXTRACTED=$extracted" >> "$GITHUB_OUTPUT"
+          echo "TASKS_WRITTEN=$written"     >> "$GITHUB_OUTPUT"
+          echo "SHEET_URL=$sheet_url"       >> "$GITHUB_OUTPUT"
+          echo "STATUS=SUCCESS"             >> "$GITHUB_OUTPUT"
+
+          echo "Tasks extracted : $extracted"
+          echo "Tasks written   : $written"
+          echo "Sheet URL       : $sheet_url"
+
+      # ── Step 3: Write GitHub Actions job summary ────────────────────────────
+      - name: "Write job summary"
+        if: always()
+        env:
+          TASKS_EXTRACTED: ${{ steps.sync.outputs.TASKS_EXTRACTED }}
+          TASKS_WRITTEN: ${{ steps.sync.outputs.TASKS_WRITTEN }}
+          SHEET_URL: ${{ steps.sync.outputs.SHEET_URL }}
+          STATUS: ${{ steps.sync.outputs.STATUS }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" << 'SUMMARY'
+          ## PreMortem Standup Sync
+          SUMMARY
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|"         >> "$GITHUB_STEP_SUMMARY"
+          echo "| Department | $DEPARTMENT |"           >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | $STATUS |"                   >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tasks extracted | $TASKS_EXTRACTED |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tasks written   | $TASKS_WRITTEN   |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dry run | $DRY_RUN |"                 >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$SHEET_URL" ]; then
+            echo "| Excel sheet | [$SHEET_URL]($SHEET_URL) |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # ── Step 4: Post Teams summary card after sync ──────────────────────────
+      - name: "Notify Teams — sync complete"
+        if: steps.sync.outputs.STATUS == 'SUCCESS' && env.DRY_RUN == 'false'
+        env:
+          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          TASKS_EXTRACTED: ${{ steps.sync.outputs.TASKS_EXTRACTED }}
+          TASKS_WRITTEN: ${{ steps.sync.outputs.TASKS_WRITTEN }}
+          SHEET_URL: ${{ steps.sync.outputs.SHEET_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          card=$(jq -n \
+            --arg dept      "$DEPARTMENT" \
+            --arg extracted "$TASKS_EXTRACTED" \
+            --arg written   "$TASKS_WRITTEN" \
+            --arg sheet     "$SHEET_URL" \
+            --arg run_url   "$RUN_URL" \
+            '{
+              "@type": "MessageCard",
+              "@context": "http://schema.org/extensions",
+              "themeColor": "0078D4",
+              "summary": ("PreMortem Standup Sync — " + $dept),
+              "sections": [{
+                "activityTitle": ("✅ Standup Sync Complete — " + $dept),
+                "activitySubtitle": "Tasks extracted from today'\''s standup and written to Microsoft Excel.",
+                "facts": [
+                  {"name": "Department",      "value": $dept},
+                  {"name": "Tasks extracted", "value": $extracted},
+                  {"name": "Tasks written",   "value": $written}
+                ]
+              }],
+              "potentialAction": [
+                {
+                  "@type": "OpenUri",
+                  "name": "View Excel Sheet",
+                  "targets": [{"os": "default", "uri": $sheet}]
+                },
+                {
+                  "@type": "OpenUri",
+                  "name": "View Run",
+                  "targets": [{"os": "default", "uri": $run_url}]
+                }
+              ]
+            }')
+
+          curl -s -X POST "$TEAMS_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$card"
+
+      # ── Step 5: Fail-alert to Teams if sync errors ──────────────────────────
+      - name: "Notify Teams — sync failed"
+        if: failure()
+        env:
+          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          card=$(jq -n \
+            --arg dept    "$DEPARTMENT" \
+            --arg run_url "$RUN_URL" \
+            '{
+              "@type": "MessageCard",
+              "@context": "http://schema.org/extensions",
+              "themeColor": "D0021B",
+              "summary": ("PreMortem Standup Sync FAILED — " + $dept),
+              "sections": [{
+                "activityTitle": ("❌ Standup Sync Failed — " + $dept),
+                "activitySubtitle": "Manual intervention required. Tasks were NOT written to Excel.",
+                "facts": [{"name": "Department", "value": $dept}]
+              }],
+              "potentialAction": [{
+                "@type": "OpenUri",
+                "name": "View Failed Run",
+                "targets": [{"os": "default", "uri": $run_url}]
+              }]
+            }')
+
+          curl -s -X POST "$TEAMS_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$card"

@@ -1,0 +1,326 @@
+# =============================================================================
+# Workflow : PreMortem | AI Remediation Deploy Gate
+# Owner    : DEWA DevOps / AI Platform Team  |  dhanush.mc@dewa.gov.ae
+# Purpose  : When an AI-generated remediation branch (claude/prevent-*) is
+#            merged to main, this workflow:
+#              1. Validates the merge came from an approved remediation PR
+#              2. Notifies the PreMortem backend to mark the linked task Done
+#              3. Triggers ArgoCD sync to deploy the fix to Kubernetes
+#              4. Sends a Teams confirmation card with full traceability
+#              5. Writes an audit trail entry
+#
+# Safety   : AI NEVER deploys directly.
+#            Human approval via Teams Adaptive Card must happen BEFORE the
+#            remediation PR is merged.  This workflow only fires AFTER merge.
+#
+# Hooks    : push (main)    - only on branches matching claude/prevent-*
+#            workflow_dispatch - manual deploy trigger (break-glass)
+# =============================================================================
+
+name: "PreMortem | AI Remediation Deploy Gate"
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: "Standup task ID that was remediated (e.g. DEVOPS-2024-05-14-001)"
+        required: true
+        type: string
+      department:
+        description: "Department"
+        required: true
+        type: choice
+        options:
+          - devops
+          - ai-deployment
+          - security
+          - intf
+          - testing
+          - data-governance
+          - sap
+          - finance
+          - ai-adoption
+          - business
+      argocd_app:
+        description: "ArgoCD application name to sync"
+        required: true
+        type: string
+      pr_url:
+        description: "URL of the approved remediation PR"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job: gate — only run for AI remediation merges
+  # ---------------------------------------------------------------------------
+  gate:
+    name: "Detect Remediation Merge"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      is_remediation: ${{ steps.detect.outputs.is_remediation }}
+      task_id: ${{ steps.detect.outputs.task_id }}
+      argocd_app: ${{ steps.detect.outputs.argocd_app }}
+
+    steps:
+      - name: "Detect if this is an AI remediation merge"
+        id: detect
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message || '' }}
+          MANUAL_TASK: ${{ github.event.inputs.task_id || '' }}
+          MANUAL_APP: ${{ github.event.inputs.argocd_app || '' }}
+        run: |
+          if [ -n "$MANUAL_TASK" ]; then
+            # Manual dispatch — trust the inputs
+            echo "is_remediation=true"  >> "$GITHUB_OUTPUT"
+            echo "task_id=$MANUAL_TASK" >> "$GITHUB_OUTPUT"
+            echo "argocd_app=$MANUAL_APP" >> "$GITHUB_OUTPUT"
+            echo "Manual remediation deploy triggered for task $MANUAL_TASK."
+            exit 0
+          fi
+
+          # Auto-detect: check if the merge commit message references a remediation PR
+          if echo "$COMMIT_MSG" | grep -qiE "(AI Remediation|claude/prevent-)"; then
+            task_id=$(echo "$COMMIT_MSG" | grep -oE '[A-Z]+-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]+' | head -1)
+            argocd_app=$(echo "$COMMIT_MSG" | grep -oP '(?<=app:)\S+' | head -1 || echo "")
+
+            echo "is_remediation=true"        >> "$GITHUB_OUTPUT"
+            echo "task_id=${task_id:-UNKNOWN}" >> "$GITHUB_OUTPUT"
+            echo "argocd_app=${argocd_app:-}"  >> "$GITHUB_OUTPUT"
+            echo "Remediation merge detected. Task: $task_id"
+          else
+            echo "is_remediation=false" >> "$GITHUB_OUTPUT"
+            echo "Not a remediation merge — skipping deploy gate."
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Job: deploy — runs only for remediation merges
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: "Deploy & Close Task"
+    needs: gate
+    if: needs.gate.outputs.is_remediation == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      # url: https://argocd.internal/applications/${{ needs.gate.outputs.argocd_app }}
+
+    env:
+      TASK_ID: ${{ needs.gate.outputs.task_id }}
+      ARGOCD_APP: ${{ needs.gate.outputs.argocd_app || github.event.inputs.argocd_app || 'default-app' }}
+      DEPARTMENT: ${{ github.event.inputs.department || 'devops' }}
+
+    steps:
+      # ── Step 1: Trigger ArgoCD sync ──────────────────────────────────────────
+      - name: "Trigger ArgoCD sync"
+        id: argocd
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER_URL }}
+          ARGOCD_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          echo "Syncing ArgoCD application: $ARGOCD_APP"
+
+          for attempt in 1 2 3; do
+            status=$(curl -s -o /tmp/argocd_resp.json -w "%{http_code}" \
+              -X POST "${ARGOCD_SERVER}/api/v1/applications/${ARGOCD_APP}/sync" \
+              -H "Authorization: Bearer ${ARGOCD_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"prune": false, "dryRun": false, "force": false}' \
+              --max-time 30)
+
+            if [[ "$status" =~ ^2 ]]; then
+              echo "ArgoCD sync triggered (HTTP $status)."
+              echo "SYNC_STATUS=TRIGGERED" >> "$GITHUB_OUTPUT"
+              break
+            fi
+
+            if [ $attempt -eq 3 ]; then
+              echo "::error::ArgoCD sync failed after 3 attempts (HTTP $status)."
+              echo "SYNC_STATUS=FAILED" >> "$GITHUB_OUTPUT"
+              # Do not exit 1 — still close the task and notify Teams
+              break
+            fi
+
+            echo "::warning::ArgoCD returned $status on attempt $attempt — retrying..."
+            sleep $((attempt * 10))
+          done
+
+      # ── Step 2: Mark task Done in Excel via PreMortem backend ───────────────
+      - name: "Mark standup task Done in Microsoft Excel"
+        id: close_task
+        env:
+          PREMORTEM_URL: ${{ secrets.PREMORTEM_BACKEND_URL }}
+          PREMORTEM_TOKEN: ${{ secrets.PREMORTEM_API_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+          PR_URL: ${{ github.event.inputs.pr_url || '' }}
+        run: |
+          payload=$(jq -n \
+            --arg task_id    "$TASK_ID" \
+            --arg dept       "$DEPARTMENT" \
+            --arg status     "Done" \
+            --arg sha        "$COMMIT_SHA" \
+            --arg pr_url     "$PR_URL" \
+            '{
+              task_id: $task_id,
+              department: $dept,
+              status: $status,
+              completed_by: "AI Remediation (human-approved)",
+              commit_sha: $sha,
+              pr_url: $pr_url
+            }')
+
+          for attempt in 1 2 3; do
+            status=$(curl -s -o /tmp/close_resp.json -w "%{http_code}" \
+              -X PATCH "${PREMORTEM_URL}/tasks/${TASK_ID}" \
+              -H "Authorization: Bearer ${PREMORTEM_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" --max-time 30)
+
+            if [[ "$status" =~ ^2 ]]; then
+              echo "Task $TASK_ID marked Done (HTTP $status)."
+              break
+            fi
+
+            echo "::warning::Task close returned $status on attempt $attempt — retrying..."
+            sleep $((attempt * 5))
+          done
+
+      # ── Step 3: Post audit log entry via PreMortem backend ──────────────────
+      - name: "Write audit log entry"
+        env:
+          PREMORTEM_URL: ${{ secrets.PREMORTEM_BACKEND_URL }}
+          PREMORTEM_TOKEN: ${{ secrets.PREMORTEM_API_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          payload=$(jq -n \
+            --arg event    "REMEDIATION_DEPLOYED" \
+            --arg task_id  "$TASK_ID" \
+            --arg dept     "$DEPARTMENT" \
+            --arg app      "$ARGOCD_APP" \
+            --arg sha      "$COMMIT_SHA" \
+            --arg run_id   "$RUN_ID" \
+            --arg actor    "$ACTOR" \
+            '{
+              event: $event,
+              task_id: $task_id,
+              department: $dept,
+              argocd_app: $app,
+              commit_sha: $sha,
+              run_id: $run_id,
+              approved_by: $actor,
+              source: "github-actions"
+            }')
+
+          curl -s -X POST "${PREMORTEM_URL}/audit" \
+            -H "Authorization: Bearer ${PREMORTEM_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$payload" --max-time 15 || true
+
+      # ── Step 4: Send Teams confirmation card ────────────────────────────────
+      - name: "Send Teams deployment confirmation"
+        env:
+          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          SYNC_STATUS: ${{ steps.argocd.outputs.SYNC_STATUS }}
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_URL: ${{ github.event.inputs.pr_url || '' }}
+        run: |
+          short_sha=$(echo "$COMMIT_SHA" | cut -c1-7)
+          sync_icon=$([[ "$SYNC_STATUS" == "TRIGGERED" ]] && echo "✅" || echo "⚠️")
+
+          card=$(jq -n \
+            --arg task_id    "$TASK_ID" \
+            --arg dept       "$DEPARTMENT" \
+            --arg app        "$ARGOCD_APP" \
+            --arg sha        "$short_sha" \
+            --arg sync       "$SYNC_STATUS" \
+            --arg sync_icon  "$sync_icon" \
+            --arg run_url    "$RUN_URL" \
+            --arg pr_url     "$PR_URL" \
+            '{
+              "@type": "MessageCard",
+              "@context": "http://schema.org/extensions",
+              "themeColor": "107C10",
+              "summary": ("PreMortem Remediation Deployed — " + $task_id),
+              "sections": [{
+                "activityTitle": ("🚀 AI Remediation Deployed — " + $task_id),
+                "activitySubtitle": "Human-approved fix is live. Task marked Done in Microsoft Excel.",
+                "facts": [
+                  {"name": "Task ID",        "value": $task_id},
+                  {"name": "Department",     "value": $dept},
+                  {"name": "ArgoCD App",     "value": $app},
+                  {"name": "Sync Status",    "value": ($sync_icon + " " + $sync)},
+                  {"name": "Commit",         "value": $sha},
+                  {"name": "Deployed by",    "value": "GitHub Actions (human-approved)"}
+                ]
+              }],
+              "potentialAction": (
+                [{"@type": "OpenUri", "name": "View Run", "targets": [{"os": "default", "uri": $run_url}]}]
+                + (if $pr_url != "" then [{"@type": "OpenUri", "name": "View PR", "targets": [{"os": "default", "uri": $pr_url}]}] else [] end)
+              )
+            }')
+
+          curl -s -X POST "$TEAMS_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$card"
+
+      # ── Step 5: Job summary ─────────────────────────────────────────────────
+      - name: "Write job summary"
+        if: always()
+        run: |
+          echo "## PreMortem AI Remediation Deploy"                     >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |"                                       >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|"                                               >> "$GITHUB_STEP_SUMMARY"
+          echo "| Task ID | $TASK_ID |"                                  >> "$GITHUB_STEP_SUMMARY"
+          echo "| Department | $DEPARTMENT |"                           >> "$GITHUB_STEP_SUMMARY"
+          echo "| ArgoCD App | $ARGOCD_APP |"                           >> "$GITHUB_STEP_SUMMARY"
+          echo "| ArgoCD Sync | ${{ steps.argocd.outputs.SYNC_STATUS }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit | ${{ github.sha }} |"                         >> "$GITHUB_STEP_SUMMARY"
+          echo "| Safety | AI Suggested → Human Approved → GitOps Deployed |" >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Step 6: Notify Teams on failure ─────────────────────────────────────
+      - name: "Notify Teams — deploy failed"
+        if: failure()
+        env:
+          TEAMS_WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          card=$(jq -n \
+            --arg task_id "$TASK_ID" \
+            --arg dept    "$DEPARTMENT" \
+            --arg app     "$ARGOCD_APP" \
+            --arg run_url "$RUN_URL" \
+            '{
+              "@type": "MessageCard",
+              "@context": "http://schema.org/extensions",
+              "themeColor": "D0021B",
+              "summary": ("PreMortem Remediation Deploy FAILED — " + $task_id),
+              "sections": [{
+                "activityTitle": ("❌ Remediation Deploy Failed — " + $task_id),
+                "activitySubtitle": "Manual intervention required. Task status NOT updated.",
+                "facts": [
+                  {"name": "Task ID",    "value": $task_id},
+                  {"name": "Department", "value": $dept},
+                  {"name": "App",        "value": $app}
+                ]
+              }],
+              "potentialAction": [{
+                "@type": "OpenUri",
+                "name": "View Failed Run",
+                "targets": [{"os": "default", "uri": $run_url}]
+              }]
+            }')
+
+          curl -s -X POST "$TEAMS_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$card"

@@ -1,0 +1,161 @@
+# =============================================================================
+# Workflow : PreMortem | Standup Checklist Notification
+# Owner    : DEWA DevOps / AI Platform Team  |  dhanush.mc@dewa.gov.ae
+# Purpose  : On every PR open / edit / sync, count pending standup checklist
+#            items injected by the PreMortem backend and post (or update) a
+#            single visibility comment. Merge is NEVER blocked.
+#
+# Hooks    : pull_request        - opened, edited, synchronize, reopened
+#            pull_request_review - submitted (re-check after reviewer acts)
+#            workflow_dispatch   - manual re-run by ops team
+# =============================================================================
+
+name: "PreMortem | Standup Checklist Notification"
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to re-evaluate (ops manual trigger)"
+        required: true
+        type: string
+
+concurrency:
+  group: premortem-checklist-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  checklist-notify:
+    name: "Standup Task Visibility"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # ── Hook: notify PreMortem backend to inject the checklist into the PR body
+      - name: "Trigger backend checklist injection"
+        if: github.event_name == 'pull_request'
+        env:
+          PREMORTEM_URL: ${{ secrets.PREMORTEM_BACKEND_URL }}
+          PREMORTEM_TOKEN: ${{ secrets.PREMORTEM_API_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          DEPARTMENT: ${{ vars.PREMORTEM_DEPARTMENT || 'devops' }}
+        run: |
+          payload=$(jq -n \
+            --arg  repo  "$REPO" \
+            --argjson pr "$PR_NUMBER" \
+            --arg  dept  "$DEPARTMENT" \
+            '{repo: $repo, pr_number: $pr, department: $dept}')
+
+          for attempt in 1 2 3; do
+            status=$(curl -s -o /tmp/pm_resp.json -w "%{http_code}" \
+              -X POST "${PREMORTEM_URL}/pr-checklist" \
+              -H "Authorization: Bearer ${PREMORTEM_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload" --max-time 20)
+
+            [[ "$status" =~ ^2 ]] && { echo "Checklist injected (HTTP $status)."; break; }
+            echo "::warning::Backend returned $status on attempt $attempt — retrying..."
+            sleep $((attempt * 5))
+          done
+          exit 0  # non-blocking: a backend failure must never prevent the comment step
+
+      # ── Hook: read PR body, post or update the single visibility comment
+      - name: "Post visibility comment"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request?.number
+              ?? parseInt('${{ inputs.pr_number }}', 10);
+
+            if (!prNumber) { core.setFailed('Could not resolve PR number.'); return; }
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const body      = pr.body || '';
+            const unchecked = (body.match(/- \[ \]/g)  || []).length;
+            const checked   = (body.match(/- \[x\]/gi) || []).length;
+            const total     = unchecked + checked;
+
+            if (total === 0) {
+              core.notice('No PreMortem standup checklist found in PR body yet.');
+              return;
+            }
+
+            const MARKER = '<!-- premortem-standup-checklist -->';
+            const footer  = '> _PreMortem + StandupSync · AI Suggests → Human Approves → GitOps Deploys_';
+            let message;
+
+            if (unchecked > 0) {
+              message = [
+                MARKER,
+                '⚠️ **PreMortem Standup Reminder** — ' + unchecked + ' of ' + total + ' task(s) still pending.',
+                '',
+                '| | Count |',
+                '|---|---|',
+                '| ✅ Checked | ' + checked + ' |',
+                '| 🔲 Pending | ' + unchecked + ' |',
+                '',
+                'You may **always merge** — this is awareness, not a gate.',
+                'Update task status in **Microsoft Excel** once work is done.',
+                '',
+                footer
+              ].join('\n');
+              core.warning(unchecked + ' standup task(s) still pending. Merge is allowed.');
+            } else {
+              message = [
+                MARKER,
+                '✅ **PreMortem Standup Checklist Complete** — all ' + total + ' task(s) checked.',
+                '',
+                'All standup items linked to this PR are accounted for. Safe to merge.',
+                '',
+                footer
+              ].join('\n');
+              core.notice('All ' + total + ' standup task(s) checked ✓');
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const existing = comments.find(c => c.user.type === 'Bot' && c.body.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: message
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: message
+              });
+            }
+
+            await core.summary
+              .addHeading('PreMortem Standup Checklist', 2)
+              .addTable([
+                [{data: 'PR', header: true}, {data: 'Total', header: true}, {data: 'Checked', header: true}, {data: 'Pending', header: true}],
+                ['#' + prNumber, String(total), String(checked), String(unchecked)]
+              ])
+              .write();
