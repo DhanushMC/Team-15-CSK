@@ -1,0 +1,2 @@
+# Tell GitHub Linguist to exclude docs from language detection
+docs/*.html  linguist-documentation=true
