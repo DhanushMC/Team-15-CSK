@@ -2,70 +2,92 @@
 
 ## What this plugin does
 
-Transforms DEWA's daily standup meetings into a fully automated, AI-governed DevOps and business operations platform.
+Transforms DEWA's daily standup meetings into a fully automated, AI-governed DevOps and business operations platform — split into two independent, composable skills.
 
 ```
-Daily Standup (Teams) → Transcript → Claude → Tasks → Excel
-        ↓
-Tasks become PR Checklists → GitHub PR Gate → Risk Analysis → Remediation → Human Approval → GitOps Deploy
+Daily Standup (Teams) --> Transcript --> Claude --> Tasks --> Excel   [StandupSync]
+        |
+        v
+Tasks become PR Checklists --> GitHub PR Gate                         [StandupSync]
+        |
+        v
+PR Diff --> Risk Analysis --> Remediation --> Human Approval          [PreMortem]
+        |
+        v
+ArgoCD Deploys --> Task Done in Excel --> Audit Log                   [PreMortem]
 ```
 
-## Plugin structure
+---
+
+## Two Skills
+
+### `/standup` — StandupSync
+Standup intelligence layer. Extracts tasks from Teams transcripts, writes to Excel, injects PR checklists.
+
+```
+/standup departments
+/standup standup [department] [transcript]
+/standup checklist [department] [sprint]
+/standup sheets sync [department]
+/standup generate [module]
+```
+
+### `/premortem` — PreMortem
+Predictive governance layer. Correlates PRs with standup tasks, predicts risk, routes fixes through human approval.
+
+```
+/premortem build order
+/premortem risk categories
+/premortem generate [module]
+/premortem explain [layer]
+/premortem write prompt for [module]
+/premortem generate checksums
+```
+
+---
+
+## Plugin Structure
 
 ```
 premortem-standupsync/
 ├── CLAUDE.md                               ← you are here
+├── OVERVIEW.md                             ← full documentation
 ├── CHANGELOG.md                            ← version history
 ├── plugin.json                             ← manifest: version, deps, checksums
 ├── .claude/
-│   ├── settings.json                       ← Claude Code hooks
+│   ├── settings.json                       ← hooks
 │   ├── commands/
-│   │   └── premortem.md                    ← /premortem slash command entry
+│   │   ├── premortem.md                    ← /premortem entry (governance)
+│   │   └── standup.md                      ← /standup entry (intelligence)
 │   └── skills/
-│       └── premortem-standupsync/
-│           └── SKILL.md                    ← canonical skill (full architecture)
+│       ├── premortem/
+│       │   └── SKILL.md                    ← PreMortem canonical skill
+│       └── standup-sync/
+│           └── SKILL.md                    ← StandupSync canonical skill
 └── .github/
     └── workflows/
-        ├── standup-checklist.yml           ← PR task visibility
-        ├── pr-analyze.yml                  ← Claude PR ↔ task correlation
-        ├── standup-sync.yml                ← scheduled standup → Excel
-        └── remediation-deploy.yml          ← AI fix → ArgoCD gate
+        ├── standup-checklist.yml           ← StandupSync: PR checklist visibility
+        ├── standup-sync.yml                ← StandupSync: cron → transcript → Excel
+        ├── pr-analyze.yml                  ← PreMortem: PR diff correlation
+        └── remediation-deploy.yml          ← PreMortem: AI fix → ArgoCD gate
 ```
 
-## Core safety principle
+---
+
+## Core Safety Principle
 
 > **AI Suggests → Human Approves → GitOps Deploys**
-> AI never deploys directly. Every remediation requires explicit human approval via Teams Adaptive Card.
 
-## Skill entry point
+---
 
-Run `/premortem` in Claude Code. Supported commands:
-
-| Command | What it does |
-|---|---|
-| `/premortem departments` | List all 10 departments and their task schemas |
-| `/premortem build order` | Return the 4-phase build sequence |
-| `/premortem generate [module]` | Generate complete Python code for a named module |
-| `/premortem standup [dept] [transcript]` | Extract tasks from a transcript |
-| `/premortem checklist [dept] [sprint]` | Generate PR checklist from pending tasks |
-| `/premortem risk categories` | Return the 5 risk categories |
-
-## Environment variables required
+## Environment Variables
 
 ```
-GRAPH_TENANT_ID        Microsoft Graph / Teams
-GRAPH_CLIENT_ID
-GRAPH_CLIENT_SECRET
-TEAMS_MEETING_IDS      JSON: department → meeting ID
-EXCEL_WORKBOOK_ID      SharePoint/OneDrive item ID
-EXCEL_DRIVE_ID
-GITHUB_TOKEN
-ANTHROPIC_API_KEY
-CLAUDE_MODEL           claude-sonnet-4-6
-TEAMS_WEBHOOK_URL
+GRAPH_TENANT_ID          GRAPH_CLIENT_ID          GRAPH_CLIENT_SECRET
+TEAMS_MEETING_IDS        EXCEL_WORKBOOK_ID         EXCEL_DRIVE_ID
+GITHUB_TOKEN             ANTHROPIC_API_KEY          CLAUDE_MODEL=claude-sonnet-4-6
+TEAMS_WEBHOOK_URL        ARGOCD_SERVER_URL          ARGOCD_AUTH_TOKEN
 ```
 
-## Plugin version
-
-See `plugin.json` for current version, dependency graph, and file integrity checksums.
+See `plugin.json` for version, dependency graph, and file integrity checksums.
 See `CHANGELOG.md` for full version history.

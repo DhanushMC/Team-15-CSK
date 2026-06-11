@@ -9,7 +9,10 @@
       "Bash(git -C \"d:\\\\Hackathon\" log --oneline -3)",
       "Bash(git -C \"d:\\\\Hackathon\" add .claude/settings.json OVERVIEW.md .claude/plugin-audit.log)",
       "Bash(git -C \"d:\\\\Hackathon\" status --short)",
-      "Bash(git -C \"d:\\\\Hackathon\" add .claude/settings.json)"
+      "Bash(git -C \"d:\\\\Hackathon\" add .claude/settings.json)",
+      "Bash(git -C \"d:\\\\Hackathon\" push origin main)",
+      "Edit(/.claude/skills/standup-sync/**)",
+      "Edit(/.claude/skills/premortem/**)"
     ]
   },
   "hooks": {
@@ -18,7 +21,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "Write-Output '{\"systemMessage\": \"PreMortem + StandupSync v1.2.0 loaded. Try: /premortem departments | /premortem build order | /premortem generate [module]\"}'",
+            "command": "Write-Output '{\"systemMessage\": \"PreMortem + StandupSync v1.3.0 | Skills: /premortem (governance) · /standup (intelligence) | Try: /standup departments · /premortem risk categories\"}'",
             "shell": "powershell"
           }
         ]
@@ -54,7 +57,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$json = [Console]::In.ReadToEnd() | ConvertFrom-Json; $f = $json.tool_input.file_path; $tracked = @('settings.json','SKILL.md','premortem.md','plugin.json'); $name = Split-Path $f -Leaf; if ($tracked -contains $name) { $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'); try { $hash = (Get-FileHash $f -Algorithm SHA256).Hash } catch { $hash = 'UNREADABLE' }; $entry = $ts + ' | INTEGRITY | ' + $f + ' | SHA256:' + $hash; Add-Content 'd:\\Hackathon\\.claude\\plugin-audit.log' $entry }",
+            "command": "$json = [Console]::In.ReadToEnd() | ConvertFrom-Json; $f = $json.tool_input.file_path; $tracked = @('settings.json','SKILL.md','premortem.md','standup.md','plugin.json'); $name = Split-Path $f -Leaf; if ($tracked -contains $name) { $ts = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'); try { $hash = (Get-FileHash $f -Algorithm SHA256).Hash } catch { $hash = 'UNREADABLE' }; $entry = $ts + ' | INTEGRITY | ' + $f + ' | SHA256:' + $hash; Add-Content 'd:\\Hackathon\\.claude\\plugin-audit.log' $entry }",
             "shell": "powershell",
             "statusMessage": "Recording plugin integrity...",
             "async": true
@@ -67,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "Write-Output '{\"systemMessage\": \"PreMortem + StandupSync ready. Run /premortem [command] to continue. Audit log: .claude/plugin-audit.log\"}'",
+            "command": "Write-Output '{\"systemMessage\": \"PreMortem + StandupSync v1.3.0 ready. /premortem · /standup | Audit: .claude/plugin-audit.log\"}'",
             "shell": "powershell"
           }
         ]
