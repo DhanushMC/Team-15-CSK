@@ -1,7 +1,7 @@
 # PreMortem + StandupSync — Plugin Overview
 
 > **AI Suggests → Human Approves → GitOps Deploys**
-> Version 1.2.0 · DEWA DevOps / AI Platform Team · dhanush.mc@dewa.gov.ae
+> Version 1.3.0 · DEWA DevOps / AI Platform Team · dhanush.mc@dewa.gov.ae
 
 ---
 
@@ -66,15 +66,18 @@ premortem-standupsync/
 |   +-- settings.json                       All hooks defined here
 |   |
 |   +-- commands/
-|   |   +-- premortem.md                    /premortem slash command (entry layer)
+|   |   +-- standup.md                      /standup slash command (intelligence layer)
+|   |   +-- premortem.md                    /premortem slash command (governance layer)
 |   |   +-- README.md                       Command usage reference
 |   |
 |   +-- skills/
-|   |   +-- premortem-standupsync/
-|   |       +-- SKILL.md                    Canonical skill — full architecture
+|   |   +-- standup-sync/
+|   |   |   +-- SKILL.md                    Canonical StandupSync skill
+|   |   +-- premortem/
+|   |       +-- SKILL.md                    Canonical PreMortem skill
 |   |
-|   +-- skill-activity.log                  Auto-written: every file edit timestamped
-|   +-- plugin-audit.log                    Auto-written: SHA-256 on tracked file changes
+|   +-- skill-activity.log                  Auto-written: every file edit timestamped (gitignored)
+|   +-- plugin-audit.log                    Auto-written: SHA-256 on tracked file changes (gitignored)
 |
 +-- .github/                                GITHUB ACTIONS LAYER
     +-- workflows/
@@ -88,26 +91,40 @@ premortem-standupsync/
 
 ## Skills
 
-### `/premortem` — PreMortem + StandupSync Skill
+### `/standup` — StandupSync Skill
 
-**File:** `.claude/commands/premortem.md` (entry) → `.claude/skills/premortem-standupsync/SKILL.md` (canonical)
+**File:** `.claude/commands/standup.md` (entry) → `.claude/skills/standup-sync/SKILL.md` (canonical)
 
-The main Claude Code slash command. Invoke it from the terminal with `/premortem [command]`.
+Standup intelligence layer. Invoke with `/standup [command]`.
 
 | Command | What it does |
 |---|---|
-| `/premortem` | Print all architecture layers with one-sentence descriptions |
-| `/premortem departments` | List all 10 departments and their task schemas |
-| `/premortem build order` | Return the 4-phase build sequence |
-| `/premortem generate [module]` | Write complete, working Python/FastAPI code for any named module |
-| `/premortem standup [dept] [transcript]` | Extract structured tasks from a transcript |
-| `/premortem checklist [dept] [sprint]` | Generate a PR checklist from pending tasks |
-| `/premortem sheets sync [dept]` | Generate the full Excel sync module for a department |
-| `/premortem department schema [dept]` | Return the column schema for a specific department |
+| `/standup departments` | List all 10 departments and their Excel column schemas |
+| `/standup standup [dept] [transcript]` | Extract structured tasks from a transcript using Claude |
+| `/standup checklist [dept] [sprint]` | Generate a GitHub PR checklist from pending tasks |
+| `/standup sheets sync [dept]` | Write the full `excel_sync.py` module for a department |
+| `/standup department schema [dept]` | Return the column schema for a specific department |
+| `/standup generate [module]` | Write complete Python/FastAPI code for any StandupSync module |
+| `/standup explain [component]` | Explain any StandupSync architecture component |
+
+---
+
+### `/premortem` — PreMortem Skill
+
+**File:** `.claude/commands/premortem.md` (entry) → `.claude/skills/premortem/SKILL.md` (canonical)
+
+**Requires:** `/standup` (standup-intelligence ≥ 1.0.0)
+
+Predictive governance layer. Invoke with `/premortem [command]`.
+
+| Command | What it does |
+|---|---|
 | `/premortem risk categories` | Return the 5 DevOps risk categories |
-| `/premortem explain [layer]` | Explain any architecture layer |
-| `/premortem write prompt for [module]` | Generate a Claude API system prompt for any AI module |
-| `/premortem generate checksums` | Compute SHA-256 hashes for all plugin files |
+| `/premortem build order` | Return the 4-phase build sequence |
+| `/premortem generate [module]` | Write complete Python/FastAPI code for any PreMortem module |
+| `/premortem explain [layer]` | Explain any PreMortem architecture layer |
+| `/premortem write prompt for [module]` | Generate a Claude API system prompt + schema for any AI module |
+| `/premortem generate checksums` | Compute SHA-256 hashes for all plugin files in plugin.json |
 
 **Supported Departments (10 total):**
 
@@ -400,8 +417,10 @@ Log location: `.claude/skill-activity.log`
 
 #### Post-hook 3 — Plugin Integrity (`PostToolUse: Write|Edit`)
 
-**Fires:** After Claude writes or edits one of the four tracked plugin files:
-- `.claude/skills/premortem-standupsync/SKILL.md`
+**Fires:** After Claude writes or edits one of the tracked plugin files:
+- `.claude/skills/standup-sync/SKILL.md`
+- `.claude/skills/premortem/SKILL.md`
+- `.claude/commands/standup.md`
 - `.claude/commands/premortem.md`
 - `.claude/settings.json`
 - `plugin.json`
@@ -655,7 +674,14 @@ To verify integrity at any time:
 ```bash
 python -c "
 import hashlib
-files = ['.claude/skills/premortem-standupsync/SKILL.md', '.claude/settings.json']
+files = [
+    '.claude/skills/standup-sync/SKILL.md',
+    '.claude/skills/premortem/SKILL.md',
+    '.claude/commands/standup.md',
+    '.claude/commands/premortem.md',
+    '.claude/settings.json',
+    'plugin.json'
+]
 for f in files:
     h = hashlib.sha256(open(f,'rb').read()).hexdigest()
     print('sha256:' + h, f)
@@ -713,8 +739,9 @@ Optional repo variable: `PREMORTEM_DEPARTMENT` (defaults to `devops`)
 
 | Layer | File | Format |
 |---|---|---|
-| Skill | `.claude/skills/premortem-standupsync/SKILL.md` | Markdown |
-| Command entry | `.claude/commands/premortem.md` | Markdown |
+| Skill (StandupSync) | `.claude/skills/standup-sync/SKILL.md` | Markdown |
+| Skill (PreMortem) | `.claude/skills/premortem/SKILL.md` | Markdown |
+| Command entry | `.claude/commands/standup.md`, `.claude/commands/premortem.md` | Markdown |
 | Hooks | `.claude/settings.json` | JSON |
 | Manifest | `plugin.json` | JSON |
 | Connectors | `.github/workflows/*.yml` | YAML |
@@ -723,4 +750,84 @@ Optional repo variable: `PREMORTEM_DEPARTMENT` (defaults to `devops`)
 
 ---
 
-*PreMortem + StandupSync · DEWA DevOps / AI Platform Team · v1.2.0*
+## Testing Guide
+
+### Tier 1 — Instant (no backend, no secrets)
+
+Open Claude Code in this repo. These commands work immediately:
+
+```
+/standup departments
+```
+Lists all 10 supported departments and their schemas. No API calls.
+
+```
+/standup standup devops Ahmed: we need to reduce memory on checkout-service, it keeps OOMKilling. Sara: updating autoscaling for payment-api, thresholds are too aggressive.
+```
+Claude extracts structured tasks from the inline transcript in real time.
+
+```
+/standup checklist devops 2026-06-16
+```
+Generates a formatted GitHub PR checklist from DevOps pending tasks.
+
+```
+/premortem risk categories
+```
+Returns the 5 DevOps risk categories with descriptions.
+
+```
+/premortem build order
+```
+Returns the 4-phase platform build sequence.
+
+```
+/premortem generate risk_predictor
+```
+Writes `backend/ai/risk_predictor.py` — complete FastAPI module.
+
+```
+/premortem write prompt for standup extractor
+```
+Generates a production Claude API system prompt + JSON output schema.
+
+---
+
+### Tier 2 — GitHub Actions (demo mode, no secrets needed)
+
+All 4 workflows exit cleanly when `PREMORTEM_BACKEND_URL` is not set.
+They skip the backend call with a `notice` annotation and show green.
+
+**Steps:**
+1. Go to **Actions** tab on GitHub
+2. Select **PreMortem | Standup Sync** → **Run workflow**
+3. Choose any department → click **Run workflow**
+4. Run completes green — job summary shows `STATUS=DEMO`
+
+Repeat with **PreMortem | PR Analysis & Task Correlation** via workflow_dispatch.
+
+---
+
+### Tier 3 — Full integration (backend deployed)
+
+Configure these in **GitHub → Settings → Secrets and variables → Actions**:
+
+| Secret | Required by |
+|---|---|
+| `PREMORTEM_BACKEND_URL` | All 4 workflows |
+| `PREMORTEM_API_TOKEN` | All 4 workflows |
+| `TEAMS_WEBHOOK_URL` | All 4 workflows |
+| `ARGOCD_SERVER_URL` | `remediation-deploy.yml` only |
+| `ARGOCD_AUTH_TOKEN` | `remediation-deploy.yml` only |
+
+Optional repo variable: `PREMORTEM_DEPARTMENT` (defaults to `devops`)
+
+With secrets set:
+- `standup-sync.yml` — fetches the real Teams transcript, writes tasks to Excel
+- `standup-checklist.yml` — injects live pending tasks into PRs
+- `pr-analyze.yml` — Claude correlates the PR diff, posts result + Teams alert
+- `remediation-deploy.yml` — ArgoCD sync → task Done → Teams confirmation card
+
+---
+
+*PreMortem + StandupSync · DEWA DevOps / AI Platform Team · v1.3.0*

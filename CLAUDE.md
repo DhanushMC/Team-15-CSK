@@ -80,6 +80,89 @@ premortem-standupsync/
 
 ---
 
+## Testing Guide
+
+### Tier 1 — No setup required (pure Claude Code, no backend)
+
+These work immediately in any Claude Code session in this repo:
+
+```
+/standup departments
+```
+Lists all 10 supported departments and their Excel column schemas.
+
+```
+/standup standup devops Ahmed: we need to reduce memory on checkout-service. Sara: updating autoscaling policy for payment-api.
+```
+Claude extracts structured tasks from the transcript in real time.
+
+```
+/standup checklist devops 2026-06-16
+```
+Generates a GitHub PR checklist from pending DevOps tasks.
+
+```
+/standup generate standup_extractor
+```
+Writes the full `backend/ai/standup_extractor.py` FastAPI module.
+
+```
+/premortem risk categories
+```
+Returns the 5 DevOps risk categories with descriptions.
+
+```
+/premortem build order
+```
+Returns the 4-phase build sequence for the platform.
+
+```
+/premortem generate risk_predictor
+```
+Writes the full `backend/ai/risk_predictor.py` module.
+
+```
+/premortem explain layer 6
+```
+Explains the Teams Adaptive Card approval workflow in detail.
+
+```
+/premortem write prompt for standup extractor
+```
+Generates a production-ready Claude API system prompt + JSON schema.
+
+---
+
+### Tier 2 — GitHub Actions (demo mode, no secrets needed)
+
+All 4 workflows run in demo mode when `PREMORTEM_BACKEND_URL` is not set.
+They skip the backend call and exit green with a notice annotation.
+
+1. Go to the repo → **Actions** tab
+2. Select **PreMortem | Standup Sync**
+3. Click **Run workflow** → choose a department → click **Run workflow**
+4. The run completes green — job summary shows `STATUS=DEMO`
+
+Repeat for **PreMortem | PR Analysis** via workflow_dispatch.
+
+---
+
+### Tier 3 — Full integration (backend deployed)
+
+Add these secrets in **GitHub → Settings → Secrets and variables → Actions**:
+
+| Secret | Purpose |
+|---|---|
+| `PREMORTEM_BACKEND_URL` | Base URL of the FastAPI backend |
+| `PREMORTEM_API_TOKEN` | Bearer token for backend auth |
+| `TEAMS_WEBHOOK_URL` | Teams incoming webhook URL |
+| `ARGOCD_SERVER_URL` | ArgoCD server base URL |
+| `ARGOCD_AUTH_TOKEN` | ArgoCD API token |
+
+With secrets set, all 4 workflows call the live backend — transcripts are fetched from Teams, tasks are written to Excel, and approval cards are sent to Teams.
+
+---
+
 ## Environment Variables
 
 ```
