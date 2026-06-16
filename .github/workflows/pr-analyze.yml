@@ -74,6 +74,15 @@ jobs:
           DEPARTMENT: ${{ vars.PREMORTEM_DEPARTMENT || 'devops' }}
           BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
         run: |
+          # Demo-mode guard: skip gracefully if backend is not yet deployed
+          if [ -z "$PREMORTEM_URL" ]; then
+            echo "::notice::PREMORTEM_BACKEND_URL secret not configured — running in demo mode (no backend call)."
+            echo "CORRELATION=DEMO"  >> "$GITHUB_OUTPUT"
+            echo "CONFIDENCE=0"      >> "$GITHUB_OUTPUT"
+            echo "SUMMARY=Demo mode — backend not deployed yet." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           diff_patch=$(cat /tmp/diff_patch.txt)
 
           payload=$(jq -n \
