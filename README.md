@@ -183,8 +183,8 @@ Every AI-generated remediation goes through a Microsoft Teams Adaptive Card befo
 
 A full 20-page A4 print-ready user manual is included in this repo:
 
-- [`PreMortem StandupSync - User Manual.html`](PreMortem%20StandupSync%20-%20User%20Manual.html) — browser viewer
-- [`PreMortem StandupSync - User Manual-print.html`](PreMortem%20StandupSync%20-%20User%20Manual-print.html) — auto-prints on open
+- [`docs/user-manual.html`](docs/user-manual.html) — browser viewer
+- [`docs/user-manual-print.html`](docs/user-manual-print.html) — auto-prints on open
 
 ---
 
