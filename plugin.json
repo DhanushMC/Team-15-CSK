@@ -1,46 +1,38 @@
 {
   "$schema": "https://claude.ai/plugin-schema/v1",
-
   "name": "premortem-standupsync",
   "displayName": "PreMortem + StandupSync",
   "version": "1.3.0",
   "description": "AI-Powered Predictive DevOps Governance Platform — two composable skills: StandupSync captures daily standup tasks into Excel and PR checklists; PreMortem predicts risk, enforces human approval, and deploys fixes via ArgoCD.",
-
   "author": {
     "name": "DEWA DevOps / AI Platform Team",
     "email": "dhanush.mc@dewa.gov.ae",
     "org": "Dubai Electricity and Water Authority"
   },
-
   "license": "MIT",
   "repository": "https://github.com/DhanushMC/Team-15-CSK",
   "createdAt": "2026-05-15",
-  "updatedAt": "2026-06-11",
-
+  "updatedAt": "2026-06-16",
   "compatibility": {
     "claude-code": ">=1.0.0",
     "github-actions": ">=3.0.0"
   },
-
   "dependencies": {
     "microsoft-graph-api": ">=1.0",
     "microsoft-teams-webhook": "*",
     "anthropic-api": ">=0.25.0",
     "argocd": ">=2.0"
   },
-
   "extends": null,
-
   "provides": {
-    "standup-intelligence":    "1.0.0",
-    "excel-task-registry":     "1.0.0",
-    "pr-checklist-gate":       "1.0.0",
-    "risk-predictor":          "1.0.0",
+    "standup-intelligence": "1.0.0",
+    "excel-task-registry": "1.0.0",
+    "pr-checklist-gate": "1.0.0",
+    "risk-predictor": "1.0.0",
     "teams-approval-workflow": "1.0.0",
-    "pr-correlator":           "1.0.0",
-    "audit-trail":             "1.0.0"
+    "pr-correlator": "1.0.0",
+    "audit-trail": "1.0.0"
   },
-
   "skills": [
     {
       "name": "standup-sync",
@@ -49,8 +41,15 @@
       "canonical": ".claude/skills/standup-sync/SKILL.md",
       "version": "1.0.0",
       "description": "Standup intelligence — transcript → Claude → Excel → PR checklist",
-      "provides": ["standup-intelligence", "excel-task-registry", "pr-checklist-gate"],
-      "workflows": ["standup-sync.yml", "standup-checklist.yml"]
+      "provides": [
+        "standup-intelligence",
+        "excel-task-registry",
+        "pr-checklist-gate"
+      ],
+      "workflows": [
+        "standup-sync.yml",
+        "standup-checklist.yml"
+      ]
     },
     {
       "name": "premortem",
@@ -59,12 +58,21 @@
       "canonical": ".claude/skills/premortem/SKILL.md",
       "version": "1.0.0",
       "description": "Predictive governance — PR correlation → risk prediction → Teams approval → ArgoCD",
-      "requires": ["standup-intelligence"],
-      "provides": ["risk-predictor", "teams-approval-workflow", "pr-correlator", "audit-trail"],
-      "workflows": ["pr-analyze.yml", "remediation-deploy.yml"]
+      "requires": [
+        "standup-intelligence"
+      ],
+      "provides": [
+        "risk-predictor",
+        "teams-approval-workflow",
+        "pr-correlator",
+        "audit-trail"
+      ],
+      "workflows": [
+        "pr-analyze.yml",
+        "remediation-deploy.yml"
+      ]
     }
   ],
-
   "hooks": [
     {
       "event": "SessionStart",
@@ -81,61 +89,85 @@
     {
       "event": "PostToolUse:Write|Edit",
       "description": "Write SHA-256 tamper-evidence entry to plugin-audit.log when tracked plugin files change",
-      "trackedFiles": ["settings.json", "SKILL.md", "premortem.md", "standup.md", "plugin.json"]
+      "trackedFiles": [
+        "settings.json",
+        "SKILL.md",
+        "premortem.md",
+        "standup.md",
+        "plugin.json"
+      ]
     },
     {
       "event": "Stop",
       "description": "Print session-ready message with audit log location"
     }
   ],
-
   "workflows": [
     {
       "name": "standup-checklist",
       "path": ".github/workflows/standup-checklist.yml",
       "skill": "standup-sync",
-      "triggers": ["pull_request", "pull_request_review", "workflow_dispatch"],
+      "triggers": [
+        "pull_request",
+        "pull_request_review",
+        "workflow_dispatch"
+      ],
       "description": "PR standup task visibility — posts/updates a single checklist comment. Merge never blocked."
     },
     {
       "name": "standup-sync",
       "path": ".github/workflows/standup-sync.yml",
       "skill": "standup-sync",
-      "triggers": ["schedule", "push", "workflow_dispatch"],
+      "triggers": [
+        "schedule",
+        "push",
+        "workflow_dispatch"
+      ],
       "description": "Scheduled standup transcript → Claude → Excel. Manual dispatch with department selector."
     },
     {
       "name": "pr-analyze",
       "path": ".github/workflows/pr-analyze.yml",
       "skill": "premortem",
-      "triggers": ["pull_request", "workflow_dispatch"],
+      "triggers": [
+        "pull_request",
+        "workflow_dispatch"
+      ],
       "description": "Claude PR diff ↔ standup task correlation (MATCH / PARTIAL / UNKNOWN). Teams alert on PARTIAL/UNKNOWN."
     },
     {
       "name": "remediation-deploy",
       "path": ".github/workflows/remediation-deploy.yml",
       "skill": "premortem",
-      "triggers": ["push", "workflow_dispatch"],
+      "triggers": [
+        "push",
+        "workflow_dispatch"
+      ],
       "description": "AI remediation merge gate: validate → ArgoCD sync → task Done → Teams card → audit log."
     }
   ],
-
   "integrity": {
     "algorithm": "SHA-256",
     "auditLog": ".claude/plugin-audit.log",
-    "trackedFiles": ["settings.json", "SKILL.md", "premortem.md", "standup.md", "plugin.json"],
+    "trackedFiles": [
+      "settings.json",
+      "SKILL.md",
+      "premortem.md",
+      "standup.md",
+      "plugin.json"
+    ],
     "checksums": {
-      "CLAUDE.md":                                    "sha256:5d347d4c656b8394d5ece21cec9e38c7bc831888027eeb06547cbd2691bd7a48",
-      "CHANGELOG.md":                                 "sha256:8f06dd81b4e09cbc197b808e721b87bc93e1c152921a8d9382f57a9519a35853",
-      ".claude/settings.json":                        "sha256:1c06b4158327aaa5d0127d062ac78a4d5d3bc5bf08dd429476161c4c42262b89",
-      ".claude/commands/premortem.md":                "sha256:38de4be27051d36d2440182b5c4c81c8fcf81a006c9c9c492678e18c4dfaf72b",
-      ".claude/commands/standup.md":                  "sha256:e89f9de85c9ccd94042a322983eab552eaa2da39183d3f1cd4b59ad2a8577bca",
-      ".claude/skills/premortem/SKILL.md":            "sha256:bf884f3d15e3d87fa0853083b778e305be8360234aa396bf1d7b240ec24fa37c",
-      ".claude/skills/standup-sync/SKILL.md":         "sha256:85661e874fbe60b87ab60a549ae22642225a96511950c37570186ff56ee15211",
-      ".github/workflows/standup-checklist.yml":      "sha256:01755d37e1c6ef3fbecc53b4ca51f1654257fb989f387108de556bd0df8bfa14",
-      ".github/workflows/pr-analyze.yml":             "sha256:629760a6072dc3bba80b4dcde69e0ffa99a870293e2181b87dd5c9dc69493a90",
-      ".github/workflows/standup-sync.yml":           "sha256:a2d580d857f9ff859685595adb94ccd9514d30f8b695a19c449deeef1269369a",
-      ".github/workflows/remediation-deploy.yml":     "sha256:3833889331a20ae2bfc4ca9e3676bb2e7b4618b36820778da1d6fb04441de36b"
+      "CLAUDE.md": "sha256:f2b2536d00fdc9de9a4286d30c27a3a01b6c2600958b10cb683c87ba7f30ee94",
+      "CHANGELOG.md": "sha256:8ed41480121570a1f7e530d343b02763f51534489069aca0daa21a4ff5905f5e",
+      ".claude/settings.json": "sha256:e5b0083708f675e26068c76d109dbad4726448e715077631a5f0d0679374db38",
+      ".claude/commands/premortem.md": "sha256:38de4be27051d36d2440182b5c4c81c8fcf81a006c9c9c492678e18c4dfaf72b",
+      ".claude/commands/standup.md": "sha256:e89f9de85c9ccd94042a322983eab552eaa2da39183d3f1cd4b59ad2a8577bca",
+      ".claude/skills/premortem/SKILL.md": "sha256:bf884f3d15e3d87fa0853083b778e305be8360234aa396bf1d7b240ec24fa37c",
+      ".claude/skills/standup-sync/SKILL.md": "sha256:85661e874fbe60b87ab60a549ae22642225a96511950c37570186ff56ee15211",
+      ".github/workflows/standup-checklist.yml": "sha256:01755d37e1c6ef3fbecc53b4ca51f1654257fb989f387108de556bd0df8bfa14",
+      ".github/workflows/pr-analyze.yml": "sha256:a49d90a4b6a2fae8646a9ab751eb31dac615a172743eb04b7cd06bb34665bce2",
+      ".github/workflows/standup-sync.yml": "sha256:6f2c1eb45c3dc2d2f76eb49e384b965385a49720194e9369bdd28a02dd66ebac",
+      ".github/workflows/remediation-deploy.yml": "sha256:3833889331a20ae2bfc4ca9e3676bb2e7b4618b36820778da1d6fb04441de36b"
     }
   }
 }

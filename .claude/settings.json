@@ -3,7 +3,6 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:api.github.com)",
-      "Edit(/.claude/skills/premortem-standupsync/**)",
       "Bash(python -c ' *)",
       "Bash(git -C \"d:\\\\Hackathon\" status)",
       "Bash(git -C \"d:\\\\Hackathon\" log --oneline -3)",

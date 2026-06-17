@@ -185,9 +185,11 @@ Gives the team a full audit trail of every file Claude touched during a session.
 
 ### Hook 4 — `PostToolUse: Write|Edit` → Plugin Integrity
 
-**When:** Every time one of the four tracked plugin files is written or edited:
+**When:** Every time one of the tracked plugin files is written or edited:
 - `.claude/settings.json`
-- `.claude/skills/premortem-standupsync/SKILL.md`
+- `.claude/skills/standup-sync/SKILL.md`
+- `.claude/skills/premortem/SKILL.md`
+- `.claude/commands/standup.md`
 - `.claude/commands/premortem.md`
 - `plugin.json`
 

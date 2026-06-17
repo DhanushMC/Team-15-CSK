@@ -6,6 +6,42 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [1.3.0] — 2026-06-16
+
+### Changed (breaking)
+- **Split the single combined skill into two independent, composable skills:**
+  - `/standup` (`standup-sync`) — standup intelligence: transcript → Claude → Excel → PR checklist
+  - `/premortem` (`premortem`) — predictive governance: PR correlation → risk → Teams approval → ArgoCD
+- `/premortem` no longer extracts standup tasks. Standup commands (`departments`, `standup`, `checklist`, `sheets sync`) now live under `/standup`.
+
+### Added
+- `.claude/commands/standup.md` — `/standup` command entry point
+- `.claude/skills/standup-sync/SKILL.md` — canonical StandupSync skill
+- `.claude/skills/premortem/SKILL.md` — canonical PreMortem skill
+- Dependency graph in `plugin.json`: `premortem` skill `requires` the `standup-intelligence` capability `provides`d by `standup-sync`
+- 3-tier Testing Guide in `CLAUDE.md` and `OVERVIEW.md` (instant / demo-mode Actions / full backend)
+- Demo-mode guard in `standup-sync.yml` and `pr-analyze.yml` — workflows exit green with a `notice` annotation when `PREMORTEM_BACKEND_URL` is not configured
+- `.gitattributes` — excludes `docs/*.html` from GitHub language statistics
+
+### Removed
+- `.claude/skills/premortem-standupsync/SKILL.md` — the old combined skill, superseded by the two split skills
+
+### Structure
+```
+premortem-standupsync v1.3.0
+├── .claude/
+│   ├── commands/
+│   │   ├── standup.md      ← new   (/standup entry)
+│   │   └── premortem.md    ← updated (governance only)
+│   └── skills/
+│       ├── standup-sync/SKILL.md  ← new
+│       └── premortem/SKILL.md     ← new
+├── docs/                   ← user manuals moved here
+└── .github/workflows/      ← demo-mode guards added
+```
+
+---
+
 ## [1.2.0] — 2026-06-11
 
 ### Added
@@ -67,6 +103,17 @@ premortem-standupsync v1.2.0
 ---
 
 ## Upgrade notes
+
+### 1.2.0 → 1.3.0
+**Breaking — the command surface split in two.** Standup commands moved from `/premortem` to `/standup`:
+| Old | New |
+|---|---|
+| `/premortem departments` | `/standup departments` |
+| `/premortem standup [dept] [transcript]` | `/standup standup [dept] [transcript]` |
+| `/premortem checklist [dept] [sprint]` | `/standup checklist [dept] [sprint]` |
+| `/premortem sheets sync [dept]` | `/standup sheets sync [dept]` |
+
+Governance commands (`risk categories`, `build order`, `explain`, `write prompt for`, `generate checksums`) stay on `/premortem`. After upgrading, run `/premortem generate checksums` to refresh `plugin.json` integrity hashes.
 
 ### 1.1.0 → 1.2.0
 No breaking changes. Add `plugin.json` and run the checksum hook once to populate integrity hashes:
